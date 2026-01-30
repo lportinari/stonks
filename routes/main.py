@@ -25,34 +25,19 @@ def index():
         per_page = request.args.get('per_page', Config.STOCKS_PER_PAGE, type=int)
         sector_filter = request.args.get('sector')
         
-        # Tentar obter do cache primeiro
-        cache_key = f"ranking_page_{page}_{per_page}_{sector_filter or 'all'}"
-        cached_data = cache_manager.get(cache_key)
         
-        if cached_data:
-            stocks_data = cached_data['stocks']
-            sectors = cached_data['sectors']
-            stats = cached_data['stats']
-        else:
-            # Obter dados do serviço com paginação real
-            if sector_filter:
-                stocks_data = ranking_service.get_sector_ranking(sector_filter, limit=per_page)
-            else:
-                stocks_data = ranking_service.get_current_ranking(page=page, per_page=per_page)
-            
-            # Obter setores disponíveis
-            sectors = ranking_service.get_available_sectors()
-            
-            # Obter estatísticas
-            stats = ranking_service.get_ranking_statistics()
-            
-            # Salvar no cache
-            cache_data = {
-                'stocks': [stock.to_dict() for stock in stocks_data],
-                'sectors': sectors,
-                'stats': stats
-            }
-            cache_manager.set(cache_key, cache_data)
+        # Desabilitar cache temporariamente para garantir paginação funcionando
+        # TODO: Implementar cache inteligente que respeita paginação
+        
+        # Obter dados do serviço com paginação real
+        stocks_data = ranking_service.get_current_ranking(page=page, per_page=per_page, sector_filter=sector_filter)
+        
+        
+        # Obter setores disponíveis
+        sectors = ranking_service.get_available_sectors()
+        
+        # Obter estatísticas
+        stats = ranking_service.get_ranking_statistics()
         
         return render_template('index.html', 
                              stocks=stocks_data,
@@ -84,6 +69,18 @@ def stock_detail_working(ticker):
         if not stock:
             return f"<h1>Ação {ticker} não encontrada</h1><p><a href='/'>Voltar</a></p>"
         
+        # Preparar dados formatados
+        cotacao_fmt = f"{stock.cotacao:.2f}" if stock.cotacao else "--"
+        pl_fmt = f"{stock.pl:.2f}" if stock.pl else "--"
+        pvp_fmt = f"{stock.pvp:.2f}" if stock.pvp else "--"
+        psr_fmt = f"{stock.psr:.2f}" if stock.psr else "--"
+        dy_fmt = f"{stock.div_yield * 100:.2f}" if stock.div_yield else "--"
+        roe_fmt = f"{stock.roe * 100:.2f}" if stock.roe else "--"
+        roic_fmt = f"{stock.roic * 100:.2f}" if stock.roic else "--"
+        margem_fmt = f"{stock.margem_liquida * 100:.2f}" if stock.margem_liquida else "--"
+        score_fmt = f"{stock.score_final:.1f}" if stock.score_final else "--"
+        posicao_fmt = f"#{stock.rank_posicao}" if stock.rank_posicao else "--"
+        
         # Página HTML simples inline
         html = f"""
         <!DOCTYPE html>
@@ -112,25 +109,25 @@ def stock_detail_working(ticker):
                         <div class="row">
                             <div class="col-md-6">
                                 <h6>Valuation</h6>
-                                <p><strong>Cotação:</strong> R$ {stock.cotacao:.2f if stock.cotacao else '--'}</p>
-                                <p><strong>P/L:</strong> {stock.pl:.2f if stock.pl else '--'}</p>
-                                <p><strong>P/VP:</strong> {stock.pvp:.2f if stock.pvp else '--'}</p>
-                                <p><strong>PSR:</strong> {stock.psr:.2f if stock.psr else '--'}</p>
+                                <p><strong>Cotação:</strong> R$ {cotacao_fmt}</p>
+                                <p><strong>P/L:</strong> {pl_fmt}</p>
+                                <p><strong>P/VP:</strong> {pvp_fmt}</p>
+                                <p><strong>PSR:</strong> {psr_fmt}</p>
                             </div>
                             <div class="col-md-6">
                                 <h6>Rentabilidade</h6>
-                                <p><strong>DY:</strong> {stock.div_yield * 100:.2f if stock.div_yield else '--'}%</p>
-                                <p><strong>ROE:</strong> {stock.roe * 100:.2f if stock.roe else '--'}%</p>
-                                <p><strong>ROIC:</strong> {stock.roic * 100:.2f if stock.roic else '--'}%</p>
-                                <p><strong>Margem Líquida:</strong> {stock.margem_liquida * 100:.2f if stock.margem_liquida else '--'}%</p>
+                                <p><strong>DY:</strong> {dy_fmt}%</p>
+                                <p><strong>ROE:</strong> {roe_fmt}%</p>
+                                <p><strong>ROIC:</strong> {roic_fmt}%</p>
+                                <p><strong>Margem Líquida:</strong> {margem_fmt}%</p>
                             </div>
                         </div>
                         
                         <div class="row mt-3">
                             <div class="col-md-6">
                                 <h6>Ranking</h6>
-                                <p><strong>Score Final:</strong> {stock.score_final:.1f if stock.score_final else '--'}/100</p>
-                                <p><strong>Posição:</strong> #{stock.rank_posicao if stock.rank_posicao else '--'}</p>
+                                <p><strong>Score Final:</strong> {score_fmt}/100</p>
+                                <p><strong>Posição:</strong> {posicao_fmt}</p>
                             </div>
                             <div class="col-md-6">
                                 <h6>Informações</h6>
