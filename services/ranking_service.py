@@ -46,18 +46,31 @@ class RankingService:
                 ticker_exclude = [s.ticker for s in stocks_with_score]
                 
                 query_without_score = db.query(Stock).filter(
-                    Stock.ticker.notin_(ticker_exclude)
+                    Stock.ticker.notin_(ticker_exclude),
+                    Stock.score_final.is_(None)  # Apenas sem score
                 )
                 
                 if sector_filter:
                     query_without_score = query_without_score.filter(Stock.setor == sector_filter)
                 
+                # Calcular offset correto para ações sem score
+                # Se temos 18 ações com score e estamos na página 2 (offset=50)
+                # então precisamos pular as primeiras 32 ações sem score da página 1
+                # mais as 50 ações sem score da página 2 atual = 82 total
+                if len(stocks_with_score) == 0:
+                    # Se não há ações com score nesta página, o offset é ajustado
+                    score_stocks_in_previous_pages = min(18, offset)  # 18 ações com score no total
+                    without_score_offset = offset - score_stocks_in_previous_pages
+                else:
+                    without_score_offset = offset
+                
                 # Ordenar por cotacao (maior primeiro) para as sem score
+                # E aplicar paginação para continuar de onde parou!
                 stocks_without_score = query_without_score.filter(
                     Stock.cotacao.isnot(None)
                 ).filter(
                     Stock.cotacao > 0
-                ).order_by(Stock.cotacao.desc()).limit(remaining).all()
+                ).order_by(Stock.cotacao.desc()).offset(without_score_offset).limit(remaining).all()
                 
                 # Garantir que todas as ações tenham valores padrão para evitar erros no template
                 for stock in stocks_without_score:
