@@ -1,0 +1,1 @@
+# Stock finder scripts for Stonks project

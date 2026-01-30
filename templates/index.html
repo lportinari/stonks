@@ -1,0 +1,507 @@
+{% extends "base.html" %}
+
+{% block title %}Ranking de Ações - Stonks{% endblock %}
+
+{% block content %}
+<div class="row">
+    <div class="col-12">
+        <div class="d-flex justify-content-between align-items-center mb-4">
+            <h1><i class="fas fa-trophy text-warning"></i> Ranking de Ações Bovespa</h1>
+            <div>
+                <button class="btn btn-outline-primary btn-sm" onclick="location.reload()">
+                    <i class="fas fa-sync-alt"></i> Atualizar
+                </button>
+                <a href="{{ url_for('main.filter_stocks') }}" class="btn btn-outline-secondary btn-sm">
+                    <i class="fas fa-filter"></i> Filtros
+                </a>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Estatísticas -->
+{% if stats %}
+<div class="row mb-4">
+    <div class="col-md-3">
+        <div class="card bg-primary text-white">
+            <div class="card-body">
+                <h5 class="card-title">Total de Ações</h5>
+                <h3>{{ stats.total_stocks }}</h3>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-3">
+        <div class="card bg-success text-white">
+            <div class="card-body">
+                <h5 class="card-title">Score Médio</h5>
+                <h3>{{ "%.1f"|format(stats.avg_score) }}</h3>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-3">
+        <div class="card bg-info text-white">
+            <div class="card-body">
+                <h5 class="card-title">Score Máximo</h5>
+                <h3>{{ "%.1f"|format(stats.top_score) }}</h3>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-3">
+        <div class="card bg-warning text-dark">
+            <div class="card-body">
+                <h5 class="card-title">Setores</h5>
+                <h3>{{ stats.sectors|length }}</h3>
+            </div>
+        </div>
+    </div>
+</div>
+{% endif %}
+
+<!-- Filtro por Setor -->
+<div class="row mb-4">
+    <div class="col-md-6">
+        <div class="card">
+            <div class="card-header">
+                <h6><i class="fas fa-industry"></i> Filtrar por Setor</h6>
+            </div>
+            <div class="card-body">
+                <form method="GET" class="d-flex">
+                    <select name="sector" class="form-select me-2" onchange="this.form.submit()">
+                        <option value="">Todos os Setores</option>
+                        {% for sector in sectors %}
+                        <option value="{{ sector }}" {% if sector == current_sector %}selected{% endif %}>
+                            {{ sector }}
+                        </option>
+                        {% endfor %}
+                    </select>
+                    <button type="submit" class="btn btn-primary">Filtrar</button>
+                </form>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-6">
+        <div class="card">
+            <div class="card-header">
+                <h6><i class="fas fa-star"></i> Top 10 Ações</h6>
+            </div>
+            <div class="card-body">
+                {% if stocks %}
+                <div class="row">
+                    {% for stock in stocks[:10] %}
+                    <div class="col-6 col-md-4 text-center mb-2">
+                        <small class="text-muted">#{{ stock.rank_posicao }}</small><br>
+                        <strong>{{ stock.ticker }}</strong><br>
+                        <span class="stock-score {{ 'score-high' if stock.score_final and stock.score_final >= 70 else 'score-medium' if stock.score_final and stock.score_final >= 40 else 'score-low' }}"></span>
+                            {{ "%.1f"|format(stock.score_final) if stock.score_final else '-' }}
+                        </span>
+                    </div>
+                    {% endfor %}
+                </div>
+                {% else %}
+                <p class="text-muted">Nenhuma ação encontrada.</p>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Tabela de Ranking -->
+<div class="row">
+    <div class="col-12">
+        <div class="card">
+            <div class="card-header d-flex justify-content-between align-items-center">
+                <h5><i class="fas fa-chart-bar"></i> 
+                    Ranking Completo
+                    {% if current_sector %}- {{ current_sector }}{% endif %}
+                </h5>
+                <small class="text-muted">
+                    {% if stocks %}Mostrando {{ stocks|length }} ações{% endif %}
+                </small>
+            </div>
+            <div class="card-body">
+                {% if stocks %}
+                <div class="table-responsive">
+                    <table class="table table-striped table-hover" id="rankingTable">
+                        <thead class="table-dark">
+                            <tr>
+                                <th>Posição</th>
+                                <th>Ticker</th>
+                                <th>Empresa</th>
+                                <th>Setor</th>
+                                <th class="indicator-value">Cotação</th>
+                                <th class="indicator-value">Score</th>
+                                <th class="indicator-value">DY</th>
+                                <th class="indicator-value">P/L</th>
+                                <th class="indicator-value">P/VP</th>
+                                <th class="indicator-value">ROE</th>
+                                <th class="indicator-value">Margem</th>
+                                <th>Ações</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for stock in stocks %}
+                            <tr>
+                                <td>
+                                    <span class="rank-badge">{{ stock.rank_posicao }}</span>
+                                </td>
+                                <td>
+                                    <strong>{{ stock.ticker }}</strong>
+                                </td>
+                                <td>
+                                    <small>{{ stock.empresa[:30] }}{% if stock.empresa|length > 30 %}...{% endif %}</small>
+                                </td>
+                                <td>
+                                    <small>{{ stock.setor or '-' }}</small>
+                                </td>
+                                <td class="indicator-value">
+                                    {% if stock.cotacao %}
+                                        R$ {{ "%.2f"|format(stock.cotacao) }}
+                                    {% else %}
+                                        -
+                                    {% endif %}
+                                </td>
+                                <td class="indicator-value">
+                                    <span class="stock-score {{ 'score-high' if stock.score_final and stock.score_final >= 70 else 'score-medium' if stock.score_final and stock.score_final >= 40 else 'score-low' }}">
+                                        {{ "%.1f"|format(stock.score_final) if stock.score_final else '-' }}
+                                    </span>
+                                </td>
+                                <td class="indicator-value">
+                                    {% if stock.div_yield %}
+                                        {{ "%.2f"|format(stock.div_yield * 100) }}%
+                                    {% else %}
+                                        -
+                                    {% endif %}
+                                </td>
+                                <td class="indicator-value">
+                                    {{ "%.2f"|format(stock.pl) if stock.pl else '-' }}
+                                </td>
+                                <td class="indicator-value">
+                                    {{ "%.2f"|format(stock.pvp) if stock.pvp else '-' }}
+                                </td>
+                                <td class="indicator-value">
+                                    {% if stock.roe %}
+                                        {{ "%.2f"|format(stock.roe * 100) }}%
+                                    {% else %}
+                                        -
+                                    {% endif %}
+                                </td>
+                                <td class="indicator-value">
+                                    {% if stock.margem_liquida %}
+                                        {{ "%.2f"|format(stock.margem_liquida * 100) }}%
+                                    {% else %}
+                                        -
+                                    {% endif %}
+                                </td>
+                                <td>
+                                    <div class="btn-group btn-group-sm">
+                                        <a href="/api/stock/{{ stock.ticker }}" 
+                                           class="btn btn-outline-primary" 
+                                           data-bs-toggle="tooltip" title="Ver detalhes" target="_blank">
+                                            <i class="fas fa-eye"></i>
+                                        </a>
+                                        <button class="btn btn-outline-success" 
+                                                onclick="addToCompare('{{ stock.ticker }}')"
+                                                data-bs-toggle="tooltip" title="Adicionar à comparação">
+                                            <i class="fas fa-plus"></i>
+                                        </button>
+                                    </div>
+                                </td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+                {% else %}
+                <div class="text-center py-5">
+                    <i class="fas fa-search fa-3x text-muted mb-3"></i>
+                    <h5 class="text-muted">Nenhuma ação encontrada</h5>
+                    <p class="text-muted">
+                        {% if current_sector %}
+                        Não há ações disponíveis para o setor {{ current_sector }}.
+                        {% else %}
+                        Não há ações disponíveis no momento. Tente atualizar os dados.
+                        {% endif %}
+                    </p>
+                    <a href="{{ url_for('main.index') }}" class="btn btn-primary">
+                        <i class="fas fa-home"></i> Voltar ao Ranking
+                    </a>
+                </div>
+                {% endif %}
+            </div>
+            
+            <!-- Paginação -->
+            {% if stocks and stocks|length > 0 %}
+            <div class="card-footer">
+                <nav aria-label="Paginação do ranking">
+                    <ul class="pagination justify-content-center mb-0">
+                        <!-- Primeira página -->
+                        {% if page > 1 %}
+                        <li class="page-item">
+                            <a class="page-link" href="{{ url_for('main.index', page=1, sector=current_sector, per_page=per_page) }}">
+                                <i class="fas fa-angle-double-left"></i>
+                            </a>
+                        </li>
+                        {% else %}
+                        <li class="page-item disabled">
+                            <span class="page-link"><i class="fas fa-angle-double-left"></i></span>
+                        </li>
+                        {% endif %}
+                        
+                        <!-- Página anterior -->
+                        {% if page > 1 %}
+                        <li class="page-item">
+                            <a class="page-link" href="{{ url_for('main.index', page=page-1, sector=current_sector, per_page=per_page) }}">
+                                <i class="fas fa-angle-left"></i>
+                            </a>
+                        </li>
+                        {% else %}
+                        <li class="page-item disabled">
+                            <span class="page-link"><i class="fas fa-angle-left"></i></span>
+                        </li>
+                        {% endif %}
+                        
+                        <!-- Número de páginas -->
+                        {% set total_pages = ((stats.total_stocks or stocks|length) / per_page)|round(0, 'ceil')|int %}
+                        {% set start_page = [1, page - 2]|max %}
+                        {% set end_page = [total_pages, page + 2]|min %}
+                        
+                        {% if start_page > 1 %}
+                        <li class="page-item disabled">
+                            <span class="page-link">...</span>
+                        </li>
+                        {% endif %}
+                        
+                        {% for p in range(start_page, end_page + 1) %}
+                        {% if p == page %}
+                        <li class="page-item active">
+                            <span class="page-link">{{ p }}</span>
+                        </li>
+                        {% else %}
+                        <li class="page-item">
+                            <a class="page-link" href="{{ url_for('main.index', page=p, sector=current_sector, per_page=per_page) }}">{{ p }}</a>
+                        </li>
+                        {% endif %}
+                        {% endfor %}
+                        
+                        {% if end_page < total_pages %}
+                        <li class="page-item disabled">
+                            <span class="page-link">...</span>
+                        </li>
+                        {% endif %}
+                        
+                        <!-- Próxima página -->
+                        {% if page < total_pages %}
+                        <li class="page-item">
+                            <a class="page-link" href="{{ url_for('main.index', page=page+1, sector=current_sector, per_page=per_page) }}">
+                                <i class="fas fa-angle-right"></i>
+                            </a>
+                        </li>
+                        {% else %}
+                        <li class="page-item disabled">
+                            <span class="page-link"><i class="fas fa-angle-right"></i></span>
+                        </li>
+                        {% endif %}
+                        
+                        <!-- Última página -->
+                        {% if page < total_pages %}
+                        <li class="page-item">
+                            <a class="page-link" href="{{ url_for('main.index', page=total_pages, sector=current_sector, per_page=per_page) }}">
+                                <i class="fas fa-angle-double-right"></i>
+                            </a>
+                        </li>
+                        {% else %}
+                        <li class="page-item disabled">
+                            <span class="page-link"><i class="fas fa-angle-double-right"></i></span>
+                        </li>
+                        {% endif %}
+                    </ul>
+                </nav>
+                
+                <!-- Controles de itens por página -->
+                <div class="row mt-3">
+                    <div class="col-md-6">
+                        <div class="d-flex align-items-center">
+                            <label class="me-2">Itens por página:</label>
+                            <select class="form-select form-select-sm" style="width: auto;" onchange="changePerPage(this.value)">
+                                <option value="20" {% if per_page == 20 %}selected{% endif %}>20</option>
+                                <option value="50" {% if per_page == 50 %}selected{% endif %}>50</option>
+                                <option value="100" {% if per_page == 100 %}selected{% endif %}>100</option>
+                                <option value="200" {% if per_page == 200 %}selected{% endif %}>200</option>
+                            </select>
+                        </div>
+                    </div>
+                    <div class="col-md-6 text-end">
+                        <small class="text-muted">
+                            {% if stats.total_stocks %}
+                            Página {{ page }} de {{ total_pages }} ({{ stats.total_stocks }} ações no total)
+                            {% else %}
+                            Página {{ page }} ({{ stocks|length }} ações)
+                            {% endif %}
+                        </small>
+                    </div>
+                </div>
+            </div>
+            {% endif %}
+        </div>
+    </div>
+</div>
+
+<!-- Modal de Comparação -->
+<div class="modal fade" id="compareModal" tabindex="-1">
+    <div class="modal-dialog modal-lg">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">Comparar Ações</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <p>Ações selecionadas para comparação:</p>
+                <div id="compareList" class="mb-3"></div>
+                <button class="btn btn-primary" onclick="compareSelected()">Comparar Selecionadas</button>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+let compareList = [];
+const MAX_COMPARE = 5;
+
+function addToCompare(ticker) {
+    if (compareList.includes(ticker)) {
+        showToast(`${ticker} já está na lista de comparação`, 'warning');
+        return;
+    }
+    
+    if (compareList.length >= MAX_COMPARE) {
+        showToast(`Máximo de ${MAX_COMPARE} ações por comparação`, 'warning');
+        return;
+    }
+    
+    compareList.push(ticker);
+    updateCompareList();
+    showToast(`${ticker} adicionado à comparação`, 'success');
+}
+
+function removeFromCompare(ticker) {
+    compareList = compareList.filter(t => t !== ticker);
+    updateCompareList();
+}
+
+function updateCompareList() {
+    const listEl = document.getElementById('compareList');
+    if (compareList.length === 0) {
+        listEl.innerHTML = '<p class="text-muted">Nenhuma ação selecionada</p>';
+        return;
+    }
+    
+    let html = '<div class="d-flex flex-wrap gap-2">';
+    compareList.forEach(ticker => {
+        html += `
+            <span class="badge bg-primary d-flex align-items-center">
+                ${ticker}
+                <button type="button" class="btn-close btn-close-white ms-2" 
+                        onclick="removeFromCompare('${ticker}')"></button>
+            </span>
+        `;
+    });
+    html += '</div>';
+    listEl.innerHTML = html;
+}
+
+function compareSelected() {
+    if (compareList.length < 2) {
+        showToast('Selecione pelo menos 2 ações para comparar', 'warning');
+        return;
+    }
+    
+    const url = `/compare?tickers=${compareList.join(',')}`;
+    window.location.href = url;
+}
+
+// Ordenação da tabela
+document.addEventListener('DOMContentLoaded', function() {
+    const table = document.getElementById('rankingTable');
+    if (table) {
+        // Adicionar ordenação clicável nos cabeçalhos
+        const headers = table.querySelectorAll('th');
+        headers.forEach((header, index) => {
+            if (index > 0 && index < 11) { // Excluir posição e ações
+                header.style.cursor = 'pointer';
+                header.addEventListener('click', () => sortTable(table, index));
+            }
+        });
+    }
+});
+
+function sortTable(table, columnIndex) {
+    const tbody = table.querySelector('tbody');
+    const rows = Array.from(tbody.querySelectorAll('tr'));
+    
+    const isNumeric = columnIndex >= 4; // Colunas de indicadores são numéricas
+    
+    rows.sort((a, b) => {
+        const aValue = a.cells[columnIndex].textContent.trim();
+        const bValue = b.cells[columnIndex].textContent.trim();
+        
+        if (isNumeric) {
+            const aNum = parseFloat(aValue.replace(/[^0-9.-]/g, '')) || 0;
+            const bNum = parseFloat(bValue.replace(/[^0-9.-]/g, '')) || 0;
+            return bNum - aNum; // Ordenar decrescente para números
+        } else {
+            return aValue.localeCompare(bValue);
+        }
+    });
+    
+    // Reorganizar linhas
+    rows.forEach(row => tbody.appendChild(row));
+}
+
+// Auto-refresh opcional
+function toggleAutoRefresh() {
+    if (autoRefreshInterval) {
+        stopAutoRefresh();
+        showToast('Auto-refresh desativado', 'info');
+    } else {
+        startAutoRefresh();
+        showToast('Auto-refresh ativado (5 minutos)', 'success');
+    }
+}
+
+// Mudar itens por página
+function changePerPage(perPage) {
+    const url = new URL(window.location);
+    url.searchParams.set('per_page', perPage);
+    url.searchParams.set('page', '1'); // Voltar para primeira página
+    window.location.href = url.toString();
+}
+
+// Exportar dados
+function exportData(format) {
+    if (format === 'csv') {
+        const table = document.getElementById('rankingTable');
+        let csv = [];
+        
+        // Headers
+        const headers = Array.from(table.querySelectorAll('thead th')).map(th => th.textContent.trim());
+        csv.push(headers.join(','));
+        
+        // Data
+        const rows = table.querySelectorAll('tbody tr');
+        rows.forEach(row => {
+            const values = Array.from(row.cells).map(cell => cell.textContent.trim());
+            csv.push(values.join(','));
+        });
+        
+        const blob = new Blob([csv.join('\n')], { type: 'text/csv' });
+        const url = window.URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = 'ranking_acoes.csv';
+        a.click();
+    }
+}
+</script>
+{% endblock %}

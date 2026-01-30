@@ -1,0 +1,98 @@
+# =========================
+# Python / Flask
+# =========================
+
+# Bytecode
+__pycache__/
+*.py[cod]
+*$py.class
+
+# Virtual environments
+venv/
+.venv/
+env/
+ENV/
+env*/
+venv*/
+.python-version
+
+# Environment variables
+.env
+.env.*
+instance/.env
+
+# Flask
+instance/
+.webassets-cache
+.flaskenv
+
+# Logs
+*.log
+logs/
+
+# SQLite / local databases
+*.sqlite
+*.sqlite3
+db.sqlite3
+
+# Migrations (se usar Flask-Migrate / Alembic)
+migrations/__pycache__/
+
+# Unit tests / coverage
+.pytest_cache/
+.coverage
+.coverage.*
+htmlcov/
+.tox/
+.nox/
+
+# Caches
+.cache/
+tmp/
+temp/
+
+# Build / packaging
+build/
+dist/
+*.egg-info/
+.eggs/
+
+# PyInstaller
+*.spec
+*.manifest
+
+# IDEs
+.idea/
+*.iml
+.vs/
+
+# VS Code
+.vscode/*
+!.vscode/settings.json
+!.vscode/launch.json
+!.vscode/extensions.json
+!.vscode/tasks.json
+
+# OS files
+.DS_Store
+Thumbs.db
+Desktop.ini
+
+# Secrets / keys
+*.pem
+*.key
+*.pfx
+*.crt
+*.cer
+secrets.*
+*secret*
+*credentials*
+credentials.json
+
+# Docker (se usar)
+*.pid
+
+README_PROFESSIONAL_APIS.md
+# =========================
+# End
+# =========================
