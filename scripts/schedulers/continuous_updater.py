@@ -10,9 +10,14 @@ import logging
 from datetime import datetime, timedelta
 from typing import List, Dict
 import json
+import sys
+import os
+
+# Adicionar o diretório raiz ao path
+sys.path.append(os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))))
 
 from services.professional_apis import ProfessionalAPIService
-from get_real_quotes import get_real_quote
+from scripts.updaters.get_real_quotes import get_real_quote
 from models.database import SessionLocal
 from models.stock import Stock
 from services.ranking_service import RankingService
@@ -117,7 +122,7 @@ class ContinuousUpdater:
                             change = data['cotacao'] - old_price if old_price else 0
                             change_percent = (change / old_price * 100) if old_price and old_price > 0 else 0
                             
-                            logger.info(f"{ticker}: R$ {old_price:.2f} → R$ {data['cotacao']:.2f} ({change_percent:+.1f}%) [{data['fonte_dados']}]")
+                            logger.info(f"{ticker}: R$ {old_price:.2f} -> R$ {data['cotacao']:.2f} ({change_percent:+.1f}%) [{data['fonte_dados']}]")
                         else:
                             results[ticker] = {'success': False, 'reason': 'not_found_in_db'}
                             logger.warning(f"{ticker}: Não encontrada no banco de dados")

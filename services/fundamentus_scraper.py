@@ -35,12 +35,15 @@ class FundamentusScraper:
                 return []
             
             # Extrair dados da tabela
-            rows = table.find_all('tr')[1:]  # Pular cabeçalho
+            rows = table.find_all('tr')
+            
+            # Pular linha de cabeçalho (primeira linha vazia)
+            data_rows = [row for row in rows if row.find_all('td')]
             
             stocks_data = []
-            for row in rows:
+            for row in data_rows:
                 cols = row.find_all('td')
-                if len(cols) >= 20:  # Verificar se temos colunas suficientes
+                if len(cols) >= 21:  # Verificar se temos colunas suficientes
                     try:
                         stock_data = self._parse_stock_row(cols)
                         if stock_data:

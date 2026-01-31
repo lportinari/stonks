@@ -56,6 +56,7 @@ class IndicatorCalculator:
     def calculate_stock_score(self, stock_data: Dict, weights: Dict) -> Optional[float]:
         """
         Calcula a pontuação final de uma ação baseado nos indicadores e pesos
+        (Método legado - mantido para compatibilidade)
         
         Args:
             stock_data: Dicionário com dados da ação
@@ -64,12 +65,96 @@ class IndicatorCalculator:
         Returns:
             float: Pontuação final (0-100) ou None
         """
+        asset_class = stock_data.get('asset_class', 'acao')
+        return self.calculate_score_by_class(stock_data, weights, asset_class)
+    
+    def calculate_score_by_class(self, stock_data: Dict, weights: Dict, asset_class: str) -> Optional[float]:
+        """
+        Calcula a pontuação final baseado na classe do ativo com indicadores específicos
+        
+        Args:
+            stock_data: Dicionário com dados da ação
+            weights: Dicionário com pesos para cada indicador
+            asset_class: Classe do ativo ('acao', 'fii', 'etf', 'bdr')
+            
+        Returns:
+            float: Pontuação final (0-100) ou None
+        """
         try:
             score = 0.0
             total_weight = 0.0
             
-            # Mapeamento dos indicadores para os campos no dicionário
-            indicator_mapping = {
+            # Obter indicadores e pesos específicos por classe
+            indicators = self.get_indicators_for_class(asset_class)
+            class_weights = self.get_weights_for_class(asset_class, weights)
+            
+            for indicator, weight in class_weights.items():
+                if weight <= 0:
+                    continue
+                    
+                # Obter o valor do indicador
+                field_name = indicators.get(indicator, indicator)
+                value = stock_data.get(field_name)
+                
+                if value is not None:
+                    # Normalizar o indicador com limites específicos por classe
+                    normalized = self.normalize_indicator_by_class(value, indicator, asset_class)
+                    
+                    if normalized is not None:
+                        score += normalized * weight
+                        total_weight += weight
+                    else:
+                        logger.debug(f"Não foi possível normalizar {indicator} para {stock_data.get('ticker')} (classe: {asset_class})")
+                else:
+                    logger.debug(f"Indicador {indicator} não encontrado para {stock_data.get('ticker')} (classe: {asset_class})")
+            
+            # Normalizar pelo peso total para garantir escala 0-1
+            if total_weight > 0:
+                score = score / total_weight
+                return score * 100  # Converter para escala 0-100
+            else:
+                logger.warning(f"Nenhum indicador válido encontrado para {stock_data.get('ticker')} (classe: {asset_class})")
+                return None
+                
+        except Exception as e:
+            logger.error(f"Erro ao calcular score para {stock_data.get('ticker')} (classe: {asset_class}): {e}")
+            return None
+    
+    def get_indicators_for_class(self, asset_class: str) -> Dict[str, str]:
+        """
+        Retorna o mapeamento de indicadores específicos para cada classe de ativo
+        """
+        if asset_class == 'fii':
+            # Indicadores específicos para FIIs
+            return {
+                'dy': 'div_yield',
+                'pvp': 'pvp',
+                'vacancia': 'vacancia',  # Campo futuro para vacância
+                'yield_mensal': 'div_yield',  # Usar DY como proxy
+                'liquidez': 'liquidity'
+            }
+        elif asset_class == 'etf':
+            # Indicadores específicos para ETFs
+            return {
+                'dy': 'div_yield',
+                'desconto_premium': 'desconto_premium',  # Campo futuro
+                'taxa_adm': 'taxa_adm',  # Campo futuro
+                'liquidez': 'liquidity',
+                'volume': 'volume'
+            }
+        elif asset_class == 'bdr':
+            # BDRs usam indicadores similares a ações
+            return {
+                'dy': 'div_yield',
+                'pl': 'pl',
+                'pvp': 'pvp',
+                'roe': 'roe',
+                'margem_liquida': 'margem_liquida',
+                'roic': 'roic'
+            }
+        else:
+            # Ações - indicadores padrão
+            return {
                 'dy': 'div_yield',
                 'pl': 'pl',
                 'pvp': 'pvp',
@@ -79,38 +164,95 @@ class IndicatorCalculator:
                 'margem_ebit': 'margem_ebit',
                 'liquidez_corr': 'liquidity'
             }
-            
-            for indicator, weight in weights.items():
-                if weight <= 0:
-                    continue
-                    
-                # Obter o valor do indicador
-                field_name = indicator_mapping.get(indicator, indicator)
-                value = stock_data.get(field_name)
-                
-                if value is not None:
-                    # Normalizar o indicador
-                    normalized = self.normalize_indicator(value, indicator)
-                    
-                    if normalized is not None:
-                        score += normalized * weight
-                        total_weight += weight
-                    else:
-                        logger.warning(f"Não foi possível normalizar {indicator} para {stock_data.get('ticker')}")
-                else:
-                    logger.debug(f"Indicador {indicator} não encontrado para {stock_data.get('ticker')}")
-            
-            # Normalizar pelo peso total para garantir escala 0-1
-            if total_weight > 0:
-                score = score / total_weight
-                return score * 100  # Converter para escala 0-100
-            else:
-                logger.warning(f"Nenhum indicador válido encontrado para {stock_data.get('ticker')}")
-                return None
-                
-        except Exception as e:
-            logger.error(f"Erro ao calcular score para {stock_data.get('ticker')}: {e}")
+    
+    def get_weights_for_class(self, asset_class: str, weights: Dict) -> Dict[str, float]:
+        """
+        Retorna os pesos específicos para cada classe de ativo
+        """
+        if asset_class == 'fii':
+            # Pesos específicos para FIIs (foco em yield e valuation)
+            return {
+                'dy': 0.40,        # Dividend Yield (mais importante para FIIs)
+                'pvp': 0.30,       # P/VP (valuation)
+                'vacancia': 0.15,  # Vacância
+                'liquidez': 0.15   # Liquidez
+            }
+        elif asset_class == 'etf':
+            # Pesos específicos para ETFs
+            return {
+                'dy': 0.30,              # Dividend Yield
+                'desconto_premium': 0.35, # Desconto/Premium sobre o índice
+                'liquidez': 0.20,        # Liquidez
+                'volume': 0.15           # Volume
+            }
+        elif asset_class == 'bdr':
+            # BDRs usam pesos similares a ações
+            return weights  # Usa os pesos fornecidos (padrão de ações)
+        else:
+            # Ações - usa os pesos fornecidos
+            return weights
+    
+    def normalize_indicator_by_class(self, value: Optional[float], indicator_type: str, asset_class: str) -> Optional[float]:
+        """
+        Normaliza um indicador considerando a classe do ativo
+        """
+        if value is None:
             return None
+        
+        # Definir limites específicos por classe e indicador
+        if asset_class == 'fii':
+            limits = self.get_fii_indicator_limits()
+        elif asset_class == 'etf':
+            limits = self.get_etf_indicator_limits()
+        elif asset_class == 'bdr':
+            limits = self.indicator_limits  # Usa limites padrão
+        else:
+            limits = self.indicator_limits  # Ações usam limites padrão
+        
+        if indicator_type not in limits:
+            logger.warning(f"Indicador {indicator_type} não configurado para classe {asset_class}")
+            return None
+        
+        limit_config = limits[indicator_type]
+        min_val = limit_config['min']
+        max_val = limit_config['max']
+        
+        # Para indicadores onde menor é melhor
+        if indicator_type in ['pl', 'pvp', 'psr', 'ev_ebit', 'ev_ebitda', 'taxa_adm']:
+            if value <= min_val:
+                return 1.0
+            elif value >= max_val:
+                return 0.0
+            else:
+                return 1.0 - ((value - min_val) / (max_val - min_val))
+        
+        # Para indicadores onde maior é melhor
+        else:
+            if value <= min_val:
+                return 0.0
+            elif value >= max_val:
+                return 1.0
+            else:
+                return (value - min_val) / (max_val - min_val)
+    
+    def get_fii_indicator_limits(self) -> Dict:
+        """Limites específicos para indicadores de FIIs"""
+        return {
+            'dy': {'min': 0, 'max': 0.25},           # 0% a 25% (FIIs costumam ter DY maior)
+            'pvp': {'min': 0, 'max': 2.0},            # 0 a 2.0 (FIIs costumam ter P/VP menor)
+            'vacancia': {'min': 0, 'max': 0.30},       # 0% a 30% (menor vacância é melhor)
+            'liquidez': {'min': 0, 'max': 1000000}     # Volume diário
+        }
+    
+    def get_etf_indicator_limits(self) -> Dict:
+        """Limites específicos para indicadores de ETFs"""
+        return {
+            'dy': {'min': 0, 'max': 0.15},              # 0% a 15%
+            'desconto_premium': {'min': -0.10, 'max': 0.10}, # -10% a 10% (desconto/premium)
+            'taxa_adm': {'min': 0, 'max': 0.05},        # 0% a 5% (menor taxa é melhor)
+            'liquidez': {'min': 0, 'max': 10000000},    # Volume diário alto
+            'volume': {'min': 0, 'max': 10000000}
+        }
     
     def calculate_batch_scores(self, stocks_data: List[Dict], weights: Dict) -> List[Dict]:
         """
