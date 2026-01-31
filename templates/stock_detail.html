@@ -1,359 +1,310 @@
 {% extends "base.html" %}
 
-{% block title %}{{ stock.ticker }} - {{ stock.empresa }} - Detalhes{% endblock %}
+{% block title %}{{ stock.empresa or stock.ticker }} - Análise Completa{% endblock %}
 
 {% block content %}
-<div class="row">
-    <div class="col-12">
-        <!-- Header com informações básicas -->
-        <div class="card mb-4">
-            <div class="card-header bg-primary text-white">
-                <div class="row align-items-center">
-                    <div class="col-md-8">
-                        <h3 class="mb-0">
-                            <strong>{{ stock.ticker }}</strong> - {{ stock.empresa }}
-                        </h3>
-                        <small class="text-white-50">{{ stock.setor or 'Não Classificado' }}</small>
-                    </div>
-                    <div class="col-md-4 text-end">
-                        {% if stock.cotacao %}
-                            <h2 class="mb-0">R$ {{ "%.2f"|format(stock.cotacao) }}</h2>
-                            <small class="text-white-50">Cotação atual</small>
-                        {% else %}
-                            <h2 class="mb-0 text-warning">--</h2>
-                            <small class="text-white-50">Sem cotação</small>
-                        {% endif %}
-                    </div>
-                </div>
-            </div>
-            <div class="card-body">
-                <div class="row">
-                    <div class="col-md-6">
-                        <p><strong>Patrimônio Líquido:</strong> R$ {{ "{:,.0f}"|format(stock.patrimonio_liquido) if stock.patrimonio_liquida else '-' }}</p>
-                        <p><strong>Valor de Mercado:</strong> R$ {{ "{:,.0f}"|format(stock.valor_mercado) if stock.valor_mercado else '-' }}</p>
-                    </div>
-                    <div class="col-md-6">
-                        <p><strong>Última Atualização:</strong> {{ stock.data_atualizacao }}</p>
-                        <p><strong>Fonte dos Dados:</strong> {{ stock.fonte_dados or 'Não informada' }}</p>
-                    </div>
-                </div>
-            </div>
-        </div>
-
-        <!-- Indicadores Fundamentalistas -->
-        <div class="card mb-4">
-            <div class="card-header bg-success text-white">
-                <h5 class="mb-0"><i class="fas fa-chart-line"></i> Indicadores Fundamentalistas</h5>
-            </div>
-            <div class="card-body">
-                <div class="row">
-                    <!-- Indicadores de Valuation -->
-                    <div class="col-md-6">
-                        <h6 class="text-primary">Valuation</h6>
-                        <table class="table table-sm">
-                            <tr>
-                                <td><strong>P/L (Price/Lucro):</strong></td>
-                                <td class="text-end">
-                                    {% if stock.pl is not none %}
-                                        {{ "%.2f"|format(stock.pl) }}
-                                        {% if stock.pl < 10 %}<span class="badge bg-success ms-2">Excelente</span>
-                                        {% elif stock.pl < 15 %}<span class="badge bg-warning ms-2">Bom</span>
-                                        {% elif stock.pl < 25 %}<span class="badge bg-info ms-2">Razoável</span>
-                                        {% else %}<span class="badge bg-secondary ms-2">Alto</span>{% endif %}
-                                    {% else %}
-                                        -
-                                    {% endif %}
-                                </td>
-                            </tr>
-                            <tr>
-                                <td><strong>P/VP (Price/VP):</strong></td>
-                                <td class="text-end">
-                                    {% if stock.pvp is not none %}
-                                        {{ "%.2f"|format(stock.pvp) }}
-                                        {% if stock.pvp < 1 %}<span class="badge bg-success ms-2">Excelente</span>
-                                        {% elif stock.pvp < 1.5 %}<span class="badge bg-warning ms-2">Bom</span>
-                                        {% elif stock.pvp < 3 %}<span class="badge bg-info ms-2">Razoável</span>
-                                        {% else %}<span class="badge bg-secondary ms-2">Alto</span>{% endif %}
-                                    {% else %}
-                                        -
-                                    {% endif %}
-                                </td>
-                            </tr>
-                            <tr>
-                                <td><strong>PSR (Price/Sales):</strong></td>
-                                <td class="text-end">{{ "%.2f"|format(stock.psr) if stock.psr else '-' }}</td>
-                            </tr>
-                            <tr>
-                                <td><strong>EV/EBIT:</strong></td>
-                                <td class="text-end">{{ "%.2f"|format(stock.ev_ebit) if stock.ev_ebit else '-' }}</td>
-                            </tr>
-                            <tr>
-                                <td><strong>EV/EBITDA:</strong></td>
-                                <td class="text-end">{{ "%.2f"|format(stock.ev_ebitda) if stock.ev_ebitda else '-' }}</td>
-                            </tr>
-                        </table>
-                    </div>
-
-                    <!-- Indicadores de Rentabilidade -->
-                    <div class="col-md-6">
-                        <h6 class="text-success">Rentabilidade</h6>
-                        <table class="table table-sm">
-                            <tr>
-                                <td><strong>DY (Dividend Yield):</strong></td>
-                                <td class="text-end">
-                                    {% if stock.div_yield is not none %}
-                                        {{ "%.2f"|format(stock.div_yield * 100) }}%
-                                        {% if stock.div_yield > 0.1 %}<span class="badge bg-success ms-2">Excelente</span>
-                                        {% elif stock.div_yield > 0.06 %}<span class="badge bg-warning ms-2">Bom</span>
-                                        {% elif stock.div_yield > 0.03 %}<span class="badge bg-info ms-2">Razoável</span>
-                                        {% else %}<span class="badge bg-secondary ms-2">Baixo</span>{% endif %}
-                                    {% else %}
-                                        -
-                                    {% endif %}
-                                </td>
-                            </tr>
-                            <tr>
-                                <td><strong>ROE (Return on Equity):</strong></td>
-                                <td class="text-end">
-                                    {% if stock.roe is not none %}
-                                        {{ "%.2f"|format(stock.roe * 100) }}%
-                                        {% if stock.roe > 0.2 %}<span class="badge bg-success ms-2">Excelente</span>
-                                        {% elif stock.roe > 0.15 %}<span class="badge bg-warning ms-2">Bom</span>
-                                        {% elif stock.roe > 0.1 %}<span class="badge bg-info ms-2">Razoável</span>
-                                        {% else %}<span class="badge bg-secondary ms-2">Baixo</span>{% endif %}
-                                    {% else %}
-                                        -
-                                    {% endif %}
-                                </td>
-                            </tr>
-                            <tr>
-                                <td><strong>ROIC:</strong></td>
-                                <td class="text-end">{{ "%.2f"|format(stock.roic * 100) if stock.roic else '-' }}%</td>
-                            </tr>
-                            <tr>
-                                <td><strong>ROA:</strong></td>
-                                <td class="text-end">{{ "%.2f"|format(stock.roa * 100) if stock.roa else '-' }}%</td>
-                            </tr>
-                            <tr>
-                                <td><strong>Margem Líquida:</strong></td>
-                                <td class="text-end">
-                                    {% if stock.margem_liquida is not none %}
-                                        {{ "%.2f"|format(stock.margem_liquida * 100) }}%
-                                        {% if stock.margem_liquida > 0.15 %}<span class="badge bg-success ms-2">Excelente</span>
-                                        {% elif stock.margem_liquida > 0.1 %}<span class="badge bg-warning ms-2">Bom</span>
-                                        {% elif stock.margem_liquida > 0.05 %}<span class="badge bg-info ms-2">Razoável</span>
-                                        {% else %}<span class="badge bg-secondary ms-2">Baixa</span>{% endif %}
-                                    {% else %}
-                                        -
-                                    {% endif %}
-                                </td>
-                            </tr>
-                            <tr>
-                                <td><strong>Margem Bruta:</strong></td>
-                                <td class="text-end">{{ "%.2f"|format(stock.margem_bruta * 100) if stock.margem_bruta else '-' }}%</td>
-                            </tr>
-                            <tr>
-                                <td><strong>Margem EBIT:</strong></td>
-                                <td class="text-end">{{ "%.2f"|format(stock.margem_ebit * 100) if stock.margem_ebit else '-' }}%</td>
-                            </tr>
-                        </table>
-                    </div>
-                </div>
-
-                <div class="row mt-3">
-                    <!-- Indicadores de Endividamento -->
-                    <div class="col-md-6">
-                        <h6 class="text-warning">Endividamento</h6>
-                        <table class="table table-sm">
-                            <tr>
-                                <td><strong>Dív. Líquida/Patrimônio:</strong></td>
-                                <td class="text-end">{{ "%.2f"|format(stock.div_liquida_patrim) if stock.div_liquida_patrim else '-' }}</td>
-                            </tr>
-                            <tr>
-                                <td><strong>Dív. Líquida/EBITDA:</strong></td>
-                                <td class="text-end">{{ "%.2f"|format(stock.div_liquida_ebitda) if stock.div_liquida_ebitda else '-' }}</td>
-                            </tr>
-                            <tr>
-                                <td><strong>Liquidez Corrente:</strong></td>
-                                <td class="text-end">{{ "%.2f"|format(stock.liquidity) if stock.liquidity else '-' }}</td>
-                            </tr>
-                        </table>
-                    </div>
-
-                    <!-- Indicadores de Crescimento -->
-                    <div class="col-md-6">
-                        <h6 class="text-info">Crescimento (5 anos)</h6>
-                        <table class="table table-sm">
-                            <tr>
-                                <td><strong>Crescimento Receita:</strong></td>
-                                <td class="text-end">{{ "%.2f"|format(stock.cresc_receita_5a * 100) if stock.cresc_receita_5a else '-' }}%</td>
-                            </tr>
-                            <tr>
-                                <td><strong>Crescimento Lucro:</strong></td>
-                                <td class="text-end">{{ "%.2f"|format(stock.cresc_lucro_5a * 100) if stock.cresc_lucro_5a else '-' }}%</td>
-                            </tr>
-                            <tr>
-                                <td><strong>Giro de Ativos:</strong></td>
-                                <td class="text-end">{{ "%.2f"|format(stock.giro_ativos) if stock.giro_ativos else '-' }}</td>
-                            </tr>
-                        </table>
-                    </div>
-                </div>
-
-                <!-- Score Final -->
-                {% if stock.score_final is not none %}
-                <div class="row mt-4">
-                    <div class="col-12">
-                        <div class="alert alert-info">
-                            <div class="row align-items-center">
-                                <div class="col-md-8">
-                                    <h5 class="mb-0">
-                                        <i class="fas fa-trophy"></i>
-                                        Score Final do Ranking: 
-                                        <strong class="{{ 'text-success' if stock.score_final >= 70 else 'text-warning' if stock.score_final >= 40 else 'text-danger' }}">
-                                            {{ "%.1f"|format(stock.score_final) }}
-                                        </strong>
-                                        / 100
-                                    </h5>
-                                    <p class="mb-0">
-                                        {% if stock.score_final >= 70 %}
-                                            <span class="badge bg-success">Excelente</span> - Ação com indicadores muito bons
-                                        {% elif stock.score_final >= 40 %}
-                                            <span class="badge bg-warning">Razoável</span> - Ação com indicadores aceitáveis
-                                        {% else %}
-                                            <span class="badge bg-danger">Abaixo da média</span> - Ação com indicadores fracos
-                                        {% endif %}
-                                    </p>
-                                </div>
-                                <div class="col-md-4 text-end">
-                                    <h3 class="mb-0">
-                                        <span class="badge {{ 'bg-success' if stock.score_final >= 70 else 'bg-warning' if stock.score_final >= 40 else 'bg-danger' }} p-3">
-                                            #{{ stock.rank_posicao if stock.rank_posicao else '-' }}
-                                        </span>
-                                    </h3>
-                                    <small>Posição no Ranking</small>
-                                </div>
+<div class="container mt-4">
+    <!-- Header com Logo e Informações Básicas -->
+    <div class="row mb-4">
+        <div class="col-md-12">
+            <div class="card shadow-sm">
+                <div class="card-body">
+                    <div class="row align-items-center">
+                        <div class="col-md-2 text-center">
+                            {% if stock.logo_url %}
+                            <img src="{{ stock.logo_url }}" alt="{{ stock.empresa or stock.ticker }}" 
+                                 class="img-fluid rounded" style="max-width: 80px; height: auto;"
+                                 onerror="this.src='https://via.placeholder.com/80x80?text={{ stock.ticker[:4] }}'">
+                            {% else %}
+                            <div class="bg-secondary text-white rounded d-flex align-items-center justify-content-center" 
+                                 style="width: 80px; height: 80px; font-size: 24px; font-weight: bold;">
+                                {{ stock.ticker[:4] }}
                             </div>
+                            {% endif %}
+                        </div>
+                        <div class="col-md-10">
+                            <h2 class="mb-1">{{ stock.empresa or stock.ticker }}</h2>
+                            <p class="text-muted mb-2">
+                                <span class="badge bg-primary">{{ stock.ticker }}</span>
+                                {% if stock.short_name %}
+                                <small class="ms-2">{{ stock.short_name }}</small>
+                                {% endif %}
+                                {% if stock.setor %}
+                                <small class="ms-3"><i class="fas fa-industry"></i> {{ stock.setor }}</small>
+                                {% endif %}
+                                {% if stock.currency %}
+                                <small class="ms-3"><i class="fas fa-money-bill"></i> {{ stock.currency }}</small>
+                                {% endif %}
+                            </p>
                         </div>
                     </div>
-                {% endif %}
+                </div>
             </div>
         </div>
+    </div>
 
-        <!-- Ações -->
-        <div class="card mb-4">
-            <div class="card-header">
-                <h5 class="mb-0"><i class="fas fa-cogs"></i> Ações</h5>
-            </div>
-            <div class="card-body">
-                <div class="row">
-                    <div class="col-md-6">
-                        <a href="{{ url_for('main.index') }}" class="btn btn-primary">
-                            <i class="fas fa-arrow-left"></i> Voltar ao Ranking
-                        </a>
+    <!-- Preços e Variação -->
+    <div class="row mb-4">
+        <div class="col-md-8">
+            <div class="card shadow-sm">
+                <div class="card-header bg-primary text-white">
+                    <h5 class="mb-0"><i class="fas fa-chart-line"></i> Preços e Variação</h5>
+                </div>
+                <div class="card-body">
+                    <div class="row">
+                        <div class="col-md-4 text-center">
+                            <h4 class="text-primary">R$ {{ "%.2f"|format(stock.cotacao or 0) }}</h4>
+                            <small class="text-muted">Cotação Atual</small>
+                        </div>
+                        <div class="col-md-4 text-center">
+                            {% if stock.regular_market_change is not none %}
+                            <h4 class="{% if stock.regular_market_change > 0 %}text-success{% elif stock.regular_market_change < 0 %}text-danger{% else %}text-secondary{% endif %}">
+                                {% if stock.regular_market_change > 0 %}+{% endif %}R$ {{ "%.2f"|format(stock.regular_market_change) }}
+                            </h4>
+                            <small class="text-muted">Variação Diária</small>
+                            {% endif %}
+                        </div>
+                        <div class="col-md-4 text-center">
+                            {% if stock.regular_market_change_percent is not none %}
+                            <h4 class="{% if stock.regular_market_change_percent > 0 %}text-success{% elif stock.regular_market_change_percent < 0 %}text-danger{% else %}text-secondary{% endif %}">
+                                {% if stock.regular_market_change_percent > 0 %}+{% endif %}{{ "%.2f"|format(stock.regular_market_change_percent) }}%
+                            </h4>
+                            <small class="text-muted">% Variação Diária</small>
+                            {% endif %}
+                        </div>
                     </div>
-                    <div class="col-md-6 text-end">
-                        <button class="btn btn-success" onclick="addToCompare('{{ stock.ticker }}')">
-                            <i class="fas fa-plus"></i> Adicionar à Comparação
-                        </button>
-                        <button class="btn btn-outline-secondary ms-2" onclick="exportData()">
-                            <i class="fas fa-download"></i> Exportar Dados
-                        </button>
+                    
+                    <hr>
+                    
+                    <div class="row">
+                        <div class="col-md-3">
+                            <small class="text-muted">Máxima Dia</small>
+                            <p class="mb-1 fw-bold">R$ {{ "%.2f"|format(stock.regular_market_day_high or 0) }}</p>
+                        </div>
+                        <div class="col-md-3">
+                            <small class="text-muted">Mínima Dia</small>
+                            <p class="mb-1 fw-bold">R$ {{ "%.2f"|format(stock.regular_market_day_low or 0) }}</p>
+                        </div>
+                        <div class="col-md-3">
+                            <small class="text-muted">Abertura</small>
+                            <p class="mb-1 fw-bold">R$ {{ "%.2f"|format(stock.regular_market_open or 0) }}</p>
+                        </div>
+                        <div class="col-md-3">
+                            <small class="text-muted">Fechamento Anterior</small>
+                            <p class="mb-1 fw-bold">R$ {{ "%.2f"|format(stock.regular_market_previous_close or 0) }}</p>
+                        </div>
+                    </div>
+                    
+                    {% if stock.regular_market_day_range %}
+                    <div class="row mt-2">
+                        <div class="col-md-12">
+                            <small class="text-muted">Range do Dia</small>
+                            <p class="mb-1 fw-bold">{{ stock.regular_market_day_range }}</p>
+                        </div>
+                    </div>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+        
+        <div class="col-md-4">
+            <div class="card shadow-sm">
+                <div class="card-header bg-success text-white">
+                    <h5 class="mb-0"><i class="fas fa-info-circle"></i> Informações</h5>
+                </div>
+                <div class="card-body">
+                    <div class="row">
+                        <div class="col-12">
+                            <small class="text-muted">Volume</small>
+                            <p class="mb-2 fw-bold">
+                                {% if stock.volume %}
+                                {{ "{:,}".format(stock.volume|int) }}
+                                {% else %}
+                                N/A
+                                {% endif %}
+                            </p>
+                        </div>
+                        <div class="col-12">
+                            <small class="text-muted">Market Cap</small>
+                            <p class="mb-2 fw-bold">
+                                {% if stock.valor_mercado %}
+                                R$ {{ "{:,.0f}".format(stock.valor_mercado) }}
+                                {% else %}
+                                N/A
+                                {% endif %}
+                            </p>
+                        </div>
+                        <div class="col-12">
+                            <small class="text-muted">Última Atualização</small>
+                            <p class="mb-1 fw-bold">
+                                {% if stock.data_atualizacao %}
+                                {{ stock.data_atualizacao.strftime('%d/%m/%Y %H:%M') }}
+                                {% else %}
+                                N/A
+                                {% endif %}
+                            </p>
+                        </div>
+                        <div class="col-12">
+                            <small class="text-muted">Fonte</small>
+                            <p class="mb-1 fw-bold">{{ stock.fonte_dados or 'N/A' }}</p>
+                        </div>
                     </div>
                 </div>
             </div>
         </div>
     </div>
-</div>
 
-<!-- Modal de Comparação -->
-<div class="modal fade" id="compareModal" tabindex="-1">
-    <div class="modal-dialog modal-lg">
-        <div class="modal-content">
-            <div class="modal-header">
-                <h5 class="modal-title">Comparar Ações</h5>
-                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
-            </div>
-            <div class="modal-body">
-                <p>Ações selecionadas para comparação:</p>
-                <div id="compareList" class="mb-3"></div>
-                <button class="btn btn-primary" onclick="compareSelected()">Comparar Selecionadas</button>
+    <!-- 52 Semanas -->
+    {% if stock.fifty_two_week_high or stock.fifty_two_week_low or stock.fifty_two_week_range %}
+    <div class="row mb-4">
+        <div class="col-md-12">
+            <div class="card shadow-sm">
+                <div class="card-header bg-info text-white">
+                    <h5 class="mb-0"><i class="fas fa-calendar-alt"></i> 52 Semanas</h5>
+                </div>
+                <div class="card-body">
+                    <div class="row">
+                        <div class="col-md-4">
+                            <small class="text-muted">Máxima 52 Semanas</small>
+                            <p class="mb-1 fw-bold">R$ {{ "%.2f"|format(stock.fifty_two_week_high or 0) }}</p>
+                        </div>
+                        <div class="col-md-4">
+                            <small class="text-muted">Mínima 52 Semanas</small>
+                            <p class="mb-1 fw-bold">R$ {{ "%.2f"|format(stock.fifty_two_week_low or 0) }}</p>
+                        </div>
+                        <div class="col-md-4">
+                            <small class="text-muted">Range 52 Semanas</small>
+                            <p class="mb-1 fw-bold">{{ stock.fifty_two_week_range or 'N/A' }}</p>
+                        </div>
+                    </div>
+                </div>
             </div>
         </div>
     </div>
+    {% endif %}
+
+    <!-- Indicadores Fundamentais -->
+    <div class="row mb-4">
+        <div class="col-md-12">
+            <div class="card shadow-sm">
+                <div class="card-header bg-warning text-dark">
+                    <h5 class="mb-0"><i class="fas fa-chart-pie"></i> Indicadores Fundamentais</h5>
+                </div>
+                <div class="card-body">
+                    <div class="row">
+                        <div class="col-md-3">
+                            <small class="text-muted">P/L</small>
+                            <p class="mb-1 fw-bold">{{ "%.2f"|format(stock.pl or 0) }}</p>
+                        </div>
+                        <div class="col-md-3">
+                            <small class="text-muted">P/VP</small>
+                            <p class="mb-1 fw-bold">{{ "%.2f"|format(stock.pvp or 0) }}</p>
+                        </div>
+                        <div class="col-md-3">
+                            <small class="text-muted">Dividend Yield</small>
+                            <p class="mb-1 fw-bold">{{ "%.2f"|format(stock.div_yield or 0) }}%</p>
+                        </div>
+                        <div class="col-md-3">
+                            <small class="text-muted">ROE</small>
+                            <p class="mb-1 fw-bold">{{ "%.2f"|format(stock.roe or 0) }}%</p>
+                        </div>
+                    </div>
+                    
+                    <div class="row mt-3">
+                        <div class="col-md-3">
+                            <small class="text-muted">Price Earnings</small>
+                            <p class="mb-1 fw-bold">{{ "%.2f"|format(stock.price_earnings or 0) }}</p>
+                        </div>
+                        <div class="col-md-3">
+                            <small class="text-muted">Earnings per Share</small>
+                            <p class="mb-1 fw-bold">R$ {{ "%.2f"|format(stock.earnings_per_share or 0) }}</p>
+                        </div>
+                        <div class="col-md-3">
+                            <small class="text-muted">Margem Líquida</small>
+                            <p class="mb-1 fw-bold">{{ "%.2f"|format(stock.margem_liquida or 0) }}%</p>
+                        </div>
+                        <div class="col-md-3">
+                            <small class="text-muted">EV/EBITDA</small>
+                            <p class="mb-1 fw-bold">{{ "%.2f"|format(stock.ev_ebitda or 0) }}</p>
+                        </div>
+                    </div>
+                    
+                    <div class="row mt-3">
+                        <div class="col-md-3">
+                            <small class="text-muted">PSR</small>
+                            <p class="mb-1 fw-bold">{{ "%.2f"|format(stock.psr or 0) }}</p>
+                        </div>
+                        <div class="col-md-3">
+                            <small class="text-muted">Liquidez Corrente</small>
+                            <p class="mb-1 fw-bold">{{ "%.2f"|format(stock.liquidity or 0) }}</p>
+                        </div>
+                        <div class="col-md-3">
+                            <small class="text-muted">Dív. Patrimônio</small>
+                            <p class="mb-1 fw-bold">{{ "%.2f"|format(stock.div_liquida_patrim or 0) }}%</p>
+                        </div>
+                        <div class="col-md-3">
+                            <small class="text-muted">ROIC</small>
+                            <p class="mb-1 fw-bold">{{ "%.2f"|format(stock.roic or 0) }}%</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Crescimento e Score -->
+    <div class="row mb-4">
+        <div class="col-md-8">
+            <div class="card shadow-sm">
+                <div class="card-header bg-secondary text-white">
+                    <h5 class="mb-0"><i class="fas fa-chart-line"></i> Crescimento</h5>
+                </div>
+                <div class="card-body">
+                    <div class="row">
+                        <div class="col-md-6">
+                            <small class="text-muted">Crescimento Receita 5A</small>
+                            <p class="mb-1 fw-bold">{{ "%.2f"|format(stock.cresc_receita_5a or 0) }}%</p>
+                        </div>
+                        <div class="col-md-6">
+                            <small class="text-muted">Crescimento Lucro 5A</small>
+                            <p class="mb-1 fw-bold">{{ "%.2f"|format(stock.cresc_lucro_5a or 0) }}%</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+        
+        <div class="col-md-4">
+            <div class="card shadow-sm">
+                <div class="card-header {% if stock.score_final >= 70 %}bg-success{% elif stock.score_final >= 50 %}bg-warning{% else %}bg-danger{% endif %} text-white">
+                    <h5 class="mb-0"><i class="fas fa-star"></i> Score Final</h5>
+                </div>
+                <div class="card-body text-center">
+                    <h2 class="{% if stock.score_final >= 70 %}text-success{% elif stock.score_final >= 50 %}text-warning{% else %}text-danger{% endif %}">
+                        {{ "%.1f"|format(stock.score_final or 0) }}
+                    </h2>
+                    <small class="text-muted">
+                        {% if stock.rank_posicao %}
+                        Ranking #{{ stock.rank_posicao }}
+                        {% endif %}
+                    </small>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Botões de Ação -->
+    <div class="row">
+        <div class="col-md-12 text-center">
+            <a href="/" class="btn btn-secondary">
+                <i class="fas fa-arrow-left"></i> Voltar
+            </a>
+            {% if stock.setor %}
+            <a href="/?setor={{ stock.setor }}" class="btn btn-info ms-2">
+                <i class="fas fa-filter"></i> Ver Setor {{ stock.setor }}
+            </a>
+            {% endif %}
+        </div>
+    </div>
 </div>
-{% endblock %}
-
-{% block extra_js %}
-<script>
-// Variável global para lista de comparação
-let compareList = [];
-const MAX_COMPARE = 5;
-
-function addToCompare(ticker) {
-    if (compareList.includes(ticker)) {
-        showToast(`${ticker} já está na lista de comparação`, 'warning');
-        return;
-    }
-    
-    if (compareList.length >= MAX_COMPARE) {
-        showToast(`Máximo de ${MAX_COMPARE} ações por comparação`, 'warning');
-        return;
-    }
-    
-    compareList.push(ticker);
-    updateCompareList();
-    showToast(`${ticker} adicionado à comparação`, 'success');
-}
-
-function removeFromCompare(ticker) {
-    compareList = compareList.filter(t => t !== ticker);
-    updateCompareList();
-}
-
-function updateCompareList() {
-    const listEl = document.getElementById('compareList');
-    if (compareList.length === 0) {
-        listEl.innerHTML = '<p class="text-muted">Nenhuma ação selecionada</p>';
-        return;
-    }
-    
-    let html = '<div class="d-flex flex-wrap gap-2">';
-    compareList.forEach(ticker => {
-        html += `
-            <span class="badge bg-primary d-flex align-items-center">
-                ${ticker}
-                <button type="button" class="btn-close btn-close-white ms-2" 
-                        onclick="removeFromCompare('${ticker}')"></button>
-            </span>
-        `;
-    });
-    html += '</div>';
-    listEl.innerHTML = html;
-}
-
-function compareSelected() {
-    if (compareList.length < 2) {
-        showToast('Selecione pelo menos 2 ações para comparar', 'warning');
-        return;
-    }
-    
-    const url = `/compare?tickers=${compareList.join(',')}`;
-    window.location.href = url;
-}
-
-function exportData() {
-    // Simplificado - apenas mostra mensagem por enquanto
-    showToast('Funcionalidade de exportação em desenvolvimento', 'info');
-}
-
-// Inicialização
-document.addEventListener('DOMContentLoaded', function() {
-    // Adicionar tooltips
-    const tooltipTriggerList = [].slice.call(document.querySelectorAll('[data-bs-toggle="tooltip"]'));
-    tooltipTriggerList.map(function (tooltipTriggerEl) {
-        return new bootstrap.Tooltip(tooltipTriggerEl);
-    });
-});
-</script>
 {% endblock %}

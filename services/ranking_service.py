@@ -16,13 +16,17 @@ class RankingService:
         self.default_weights = Config.DEFAULT_WEIGHTS.copy()
     
     def get_current_ranking(self, limit: int = 50, sector_filter: Optional[str] = None, 
+                          asset_class_filter: Optional[str] = None,
+                          search_filter: Optional[str] = None,
                           page: int = 1, per_page: int = 50) -> List[Stock]:
         """
-        Obtém o ranking atual de ações com paginação
+        Obtém o ranking atual de ações com paginação e filtros
         
         Args:
             limit: Número máximo de ações a retornar (legado)
             sector_filter: Filtrar por setor específico
+            asset_class_filter: Filtrar por classe de ativo
+            search_filter: Filtrar por ticker ou nome da empresa
             page: Página atual
             per_page: Itens por página
             
@@ -30,71 +34,60 @@ class RankingService:
             List[Stock]: Lista de ações ordenadas por ranking
         """
         with SessionLocal() as db:
-            # Primeiro tenta com score_final calculado
-            query_with_score = db.query(Stock).filter(Stock.score_final.isnot(None))
+            # Buscar todas as ações com preço (agora todos têm score após o recálculo)
+            query = db.query(Stock).filter(
+                Stock.cotacao.isnot(None)
+            ).filter(
+                Stock.cotacao > 0
+            )
             
+            # Aplicar filtros
             if sector_filter:
-                query_with_score = query_with_score.filter(Stock.setor == sector_filter)
+                query = query.filter(Stock.setor == sector_filter)
             
-            # Aplicar paginação real
-            offset = (page - 1) * per_page
-            stocks_with_score = query_with_score.order_by(Stock.score_final.desc()).offset(offset).limit(per_page).all()
+            if asset_class_filter:
+                query = query.filter(Stock.asset_class == asset_class_filter)
             
-            # Se não tiver suficientes com score, complementa com ações sem score
-            if len(stocks_with_score) < per_page:
-                remaining = per_page - len(stocks_with_score)
-                ticker_exclude = [s.ticker for s in stocks_with_score]
-                
-                query_without_score = db.query(Stock).filter(
-                    Stock.ticker.notin_(ticker_exclude),
-                    Stock.score_final.is_(None)  # Apenas sem score
+            if search_filter:
+                search_term = f"%{search_filter.upper()}%"
+                query = query.filter(
+                    (Stock.ticker.ilike(search_term)) |
+                    (Stock.empresa.ilike(f"%{search_filter}%"))
                 )
-                
-                if sector_filter:
-                    query_without_score = query_without_score.filter(Stock.setor == sector_filter)
-                
-                # Calcular offset correto para ações sem score
-                # Se temos 18 ações com score e estamos na página 2 (offset=50)
-                # então precisamos pular as primeiras 32 ações sem score da página 1
-                # mais as 50 ações sem score da página 2 atual = 82 total
-                if len(stocks_with_score) == 0:
-                    # Se não há ações com score nesta página, o offset é ajustado
-                    score_stocks_in_previous_pages = min(18, offset)  # 18 ações com score no total
-                    without_score_offset = offset - score_stocks_in_previous_pages
-                else:
-                    without_score_offset = offset
-                
-                # Ordenar por cotacao (maior primeiro) para as sem score
-                # E aplicar paginação para continuar de onde parou!
-                stocks_without_score = query_without_score.filter(
-                    Stock.cotacao.isnot(None)
-                ).filter(
-                    Stock.cotacao > 0
-                ).order_by(Stock.cotacao.desc()).offset(without_score_offset).limit(remaining).all()
-                
-                # Garantir que todas as ações tenham valores padrão para evitar erros no template
-                for stock in stocks_without_score:
-                    if stock.score_final is None:
-                        stock.score_final = 0
-                    if stock.rank_posicao is None:
-                        stock.rank_posicao = 999999  # Valor alto para ficar no final
-                    # Garantir que campos numéricos não sejam None
-                    if stock.cotacao is None:
-                        stock.cotacao = 0
-                    if stock.div_yield is None:
-                        stock.div_yield = 0
-                    if stock.pl is None:
-                        stock.pl = 0
-                    if stock.pvp is None:
-                        stock.pvp = 0
-                    if stock.roe is None:
-                        stock.roe = 0
-                    if stock.margem_liquida is None:
-                        stock.margem_liquida = 0
-                
-                return stocks_with_score + stocks_without_score
             
-            return stocks_with_score
+            # Ordenar por score (maior primeiro), depois por ticker
+            query = query.order_by(Stock.score_final.desc().nullslast(), Stock.ticker.asc())
+            
+            # Aplicar paginação
+            offset = (page - 1) * per_page
+            stocks = query.offset(offset).limit(per_page).all()
+            
+            # Garantir que todas as ações tenham valores padrão para evitar erros no template
+            for stock in stocks:
+                if stock.score_final is None:
+                    stock.score_final = 0
+                if stock.rank_posicao is None:
+                    stock.rank_posicao = 999999
+                # Garantir que campos numéricos não sejam None
+                if stock.cotacao is None:
+                    stock.cotacao = 0
+                if stock.div_yield is None:
+                    stock.div_yield = 0
+                if stock.pl is None:
+                    stock.pl = 0
+                if stock.pvp is None:
+                    stock.pvp = 0
+                if stock.roe is None:
+                    stock.roe = 0
+                if stock.margem_liquida is None:
+                    stock.margem_liquida = 0
+                # Garantir que asset_class esteja definido
+                if not stock.asset_class:
+                    from services.asset_classifier import AssetClassifier
+                    classifier = AssetClassifier(db)
+                    stock.asset_class = classifier.classify_asset(stock.ticker)
+            
+            return stocks
     
     def get_top_stocks(self, limit: int = 10) -> List[Stock]:
         """
@@ -123,7 +116,7 @@ class RankingService:
     
     def update_ranking(self, weights: Optional[Dict] = None) -> int:
         """
-        Atualiza o ranking de todas as ações no banco
+        Atualiza o ranking de todas as ações no banco usando sistema multi-classes
         
         Args:
             weights: Pesos customizados (usa padrão se None)
@@ -135,19 +128,48 @@ class RankingService:
             weights = self.default_weights
         
         with SessionLocal() as db:
-            # Buscar todas as ações
-            stocks = db.query(Stock).all()
+            # Buscar todas as ações com preço
+            stocks = db.query(Stock).filter(
+                Stock.cotacao.isnot(None)
+            ).filter(
+                Stock.cotacao > 0
+            ).all()
+            
+            logger.info(f"Processando {len(stocks)} ativos para ranking")
             
             updated_count = 0
+            class_stats = {'acao': 0, 'fii': 0, 'etf': 0, 'bdr': 0, 'others': 0}
+            
             for stock in stocks:
-                # Converter para dicionário para cálculo
-                stock_dict = stock.to_dict()
-                
-                # Calcular novo score
-                new_score = self.calculator.calculate_stock_score(stock_dict, weights)
-                
-                if new_score is not None:
-                    stock.score_final = new_score
+                try:
+                    # Garantir que a classe esteja definida
+                    if not stock.asset_class:
+                        from services.asset_classifier import AssetClassifier
+                        classifier = AssetClassifier(db)
+                        stock.asset_class = classifier.classify_asset(stock.ticker)
+                    
+                    # Converter para dicionário para cálculo
+                    stock_dict = stock.to_dict()
+                    
+                    # Calcular novo score usando sistema multi-classes
+                    new_score = self.calculator.calculate_score_by_class(
+                        stock_dict, weights, stock.asset_class
+                    )
+                    
+                    if new_score is not None:
+                        stock.score_final = new_score
+                        updated_count += 1
+                        class_stats[stock.asset_class] = class_stats.get(stock.asset_class, 0) + 1
+                    else:
+                        # Se não conseguiu calcular score, atribuir score mínimo
+                        stock.score_final = 0
+                        updated_count += 1
+                        class_stats['others'] += 1
+                        
+                except Exception as e:
+                    logger.error(f"Erro ao processar {stock.ticker}: {e}")
+                    # Atribuir score mínimo para não quebrar
+                    stock.score_final = 0
                     updated_count += 1
             
             # Commit das alterações
@@ -157,6 +179,7 @@ class RankingService:
             self._update_ranking_positions(db)
             
             logger.info(f"Ranking atualizado: {updated_count} ações processadas")
+            logger.info(f"Distribuição por classe: {class_stats}")
             return updated_count
     
     def _update_ranking_positions(self, db: Session):

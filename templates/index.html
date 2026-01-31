@@ -57,9 +57,29 @@
 </div>
 {% endif %}
 
-<!-- Filtro por Setor -->
+<!-- Filtros -->
 <div class="row mb-4">
-    <div class="col-md-6">
+    <div class="col-md-3">
+        <div class="card">
+            <div class="card-header">
+                <h6><i class="fas fa-search"></i> Buscar por Nome</h6>
+            </div>
+            <div class="card-body">
+                <form method="GET" class="d-flex">
+                    <input type="text" 
+                           name="search" 
+                           class="form-control me-2" 
+                           placeholder="Ticker ou Empresa..." 
+                           value="{{ current_search or '' }}"
+                           onkeyup="this.form.submit()">
+                    <button type="submit" class="btn btn-primary">
+                        <i class="fas fa-search"></i>
+                    </button>
+                </form>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-3">
         <div class="card">
             <div class="card-header">
                 <h6><i class="fas fa-industry"></i> Filtrar por Setor</h6>
@@ -79,7 +99,26 @@
             </div>
         </div>
     </div>
-    <div class="col-md-6">
+    <div class="col-md-3">
+        <div class="card">
+            <div class="card-header">
+                <h6><i class="fas fa-tags"></i> Filtrar por Classe</h6>
+            </div>
+            <div class="card-body">
+                <form method="GET" class="d-flex">
+                    <select name="asset_class" class="form-select me-2" onchange="this.form.submit()">
+                        <option value="">Todas as Classes</option>
+                        <option value="acao" {% if current_asset_class == 'acao' %}selected{% endif %}>Ações</option>
+                        <option value="fii" {% if current_asset_class == 'fii' %}selected{% endif %}>FIIs</option>
+                        <option value="etf" {% if current_asset_class == 'etf' %}selected{% endif %}>ETFs</option>
+                        <option value="bdr" {% if current_asset_class == 'bdr' %}selected{% endif %}>BDRs</option>
+                    </select>
+                    <button type="submit" class="btn btn-primary">Filtrar</button>
+                </form>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-4">
         <div class="card">
             <div class="card-header">
                 <h6><i class="fas fa-star"></i> Top 10 Ações</h6>
@@ -125,9 +164,10 @@
                         <thead class="table-dark">
                             <tr>
                                 <th>Posição</th>
+                                <th>Logo</th>
                                 <th>Ticker</th>
                                 <th>Empresa</th>
-                                <th>Setor</th>
+                                <th>Classe</th>
                                 <th class="indicator-value">Cotação</th>
                                 <th class="indicator-value">Score</th>
                                 <th class="indicator-value">DY</th>
@@ -145,13 +185,24 @@
                                     <span class="rank-badge">{{ stock.rank_posicao }}</span>
                                 </td>
                                 <td>
+                                    {% if stock.logo_url %}
+                                        <img src="{{ stock.logo_url }}" alt="{{ stock.ticker }}" 
+                                             class="stock-logo" onerror="this.src='https://ui-avatars.com/api/?name={{ stock.ticker }}&background=random&rounded=true'">
+                                    {% else %}
+                                        <img src="https://ui-avatars.com/api/?name={{ stock.ticker }}&background=random&rounded=true" 
+                                             alt="{{ stock.ticker }}" class="stock-logo">
+                                    {% endif %}
+                                </td>
+                                <td>
                                     <strong>{{ stock.ticker }}</strong>
                                 </td>
                                 <td>
                                     <small>{{ stock.empresa[:30] }}{% if stock.empresa|length > 30 %}...{% endif %}</small>
                                 </td>
                                 <td>
-                                    <small>{{ stock.setor or '-' }}</small>
+                                    <span class="badge {{ 'bg-primary' if stock.asset_class == 'acao' else 'bg-success' if stock.asset_class == 'fii' else 'bg-info' if stock.asset_class == 'etf' else 'bg-warning' }}">
+                                        {{ stock.asset_class|upper if stock.asset_class else 'AÇÃO' }}
+                                    </span>
                                 </td>
                                 <td class="indicator-value">
                                     {% if stock.cotacao %}
@@ -237,7 +288,7 @@
                         <!-- Primeira página -->
                         {% if page > 1 %}
                         <li class="page-item">
-                            <a class="page-link" href="{{ url_for('main.index', page=1, sector=current_sector, per_page=per_page) }}">
+                            <a class="page-link" href="{{ url_for('main.index', page=1, sector=current_sector, asset_class=current_asset_class, search=current_search, per_page=per_page) }}">
                                 <i class="fas fa-angle-double-left"></i>
                             </a>
                         </li>
@@ -250,7 +301,7 @@
                         <!-- Página anterior -->
                         {% if page > 1 %}
                         <li class="page-item">
-                            <a class="page-link" href="{{ url_for('main.index', page=page-1, sector=current_sector, per_page=per_page) }}">
+                            <a class="page-link" href="{{ url_for('main.index', page=page-1, sector=current_sector, asset_class=current_asset_class, search=current_search, per_page=per_page) }}">
                                 <i class="fas fa-angle-left"></i>
                             </a>
                         </li>
@@ -278,7 +329,7 @@
                         </li>
                         {% else %}
                         <li class="page-item">
-                            <a class="page-link" href="{{ url_for('main.index', page=p, sector=current_sector, per_page=per_page) }}">{{ p }}</a>
+                            <a class="page-link" href="{{ url_for('main.index', page=p, sector=current_sector, asset_class=current_asset_class, search=current_search, per_page=per_page) }}">{{ p }}</a>
                         </li>
                         {% endif %}
                         {% endfor %}
@@ -292,7 +343,7 @@
                         <!-- Próxima página -->
                         {% if page < total_pages %}
                         <li class="page-item">
-                            <a class="page-link" href="{{ url_for('main.index', page=page+1, sector=current_sector, per_page=per_page) }}">
+                            <a class="page-link" href="{{ url_for('main.index', page=page+1, sector=current_sector, asset_class=current_asset_class, search=current_search, per_page=per_page) }}">
                                 <i class="fas fa-angle-right"></i>
                             </a>
                         </li>
@@ -305,7 +356,7 @@
                         <!-- Última página -->
                         {% if page < total_pages %}
                         <li class="page-item">
-                            <a class="page-link" href="{{ url_for('main.index', page=total_pages, sector=current_sector, per_page=per_page) }}">
+                            <a class="page-link" href="{{ url_for('main.index', page=total_pages, sector=current_sector, asset_class=current_asset_class, search=current_search, per_page=per_page) }}">
                                 <i class="fas fa-angle-double-right"></i>
                             </a>
                         </li>

@@ -131,8 +131,32 @@ class ProfessionalAPIService:
                         'ticker': ticker,
                         'cotacao': stock_data.get('regularMarketPrice'),
                         'empresa': stock_data.get('longName') or stock_data.get('shortName'),
+                        'short_name': stock_data.get('shortName'),
                         'setor': stock_data.get('sector'),
                         'subsetor': stock_data.get('industry'),
+                        'currency': stock_data.get('currency', 'BRL'),
+                        'logo_url': stock_data.get('logourl'),
+                        
+                        # Variação e preços diários
+                        'regular_market_day_high': stock_data.get('regularMarketDayHigh'),
+                        'regular_market_day_low': stock_data.get('regularMarketDayLow'),
+                        'regular_market_day_range': stock_data.get('regularMarketDayRange'),
+                        'regular_market_change': stock_data.get('regularMarketChange'),
+                        'regular_market_change_percent': stock_data.get('regularMarketChangePercent'),
+                        'regular_market_time': stock_data.get('regularMarketTime'),
+                        'regular_market_previous_close': stock_data.get('regularMarketPreviousClose'),
+                        'regular_market_open': stock_data.get('regularMarketOpen'),
+                        
+                        # Dados de 52 semanas
+                        'fifty_two_week_range': stock_data.get('fiftyTwoWeekRange'),
+                        'fifty_two_week_low': stock_data.get('fiftyTwoWeekLow'),
+                        'fifty_two_week_high': stock_data.get('fiftyTwoWeekHigh'),
+                        
+                        # Métricas adicionais
+                        'price_earnings': stock_data.get('priceEarnings'),
+                        'earnings_per_share': stock_data.get('earningsPerShare'),
+                        
+                        # Indicadores fundamentais
                         'div_yield': stock_data.get('dividendYield'),
                         'pl': stock_data.get('forwardPE') or stock_data.get('trailingPE'),
                         'pvp': stock_data.get('priceToBook'),
@@ -144,6 +168,8 @@ class ProfessionalAPIService:
                         'div_liquida_patrim': stock_data.get('debtToEquity'),
                         'roic': stock_data.get('returnOnAssets'),
                         'cresc_receita_5a': stock_data.get('revenueGrowth'),
+                        
+                        # Outros dados
                         'fonte_dados': 'brapi',
                         'data_atualizacao': datetime.now().isoformat(),
                         'volume': stock_data.get('regularMarketVolume'),
@@ -190,8 +216,32 @@ class ProfessionalAPIService:
                                 'ticker': ticker,
                                 'cotacao': stock_data.get('regularMarketPrice'),
                                 'empresa': stock_data.get('longName') or stock_data.get('shortName'),
+                                'short_name': stock_data.get('shortName'),
                                 'setor': stock_data.get('sector'),
                                 'subsetor': stock_data.get('industry'),
+                                'currency': stock_data.get('currency', 'BRL'),
+                                'logo_url': stock_data.get('logourl'),
+                                
+                                # Variação e preços diários
+                                'regular_market_day_high': stock_data.get('regularMarketDayHigh'),
+                                'regular_market_day_low': stock_data.get('regularMarketDayLow'),
+                                'regular_market_day_range': stock_data.get('regularMarketDayRange'),
+                                'regular_market_change': stock_data.get('regularMarketChange'),
+                                'regular_market_change_percent': stock_data.get('regularMarketChangePercent'),
+                                'regular_market_time': stock_data.get('regularMarketTime'),
+                                'regular_market_previous_close': stock_data.get('regularMarketPreviousClose'),
+                                'regular_market_open': stock_data.get('regularMarketOpen'),
+                                
+                                # Dados de 52 semanas
+                                'fifty_two_week_range': stock_data.get('fiftyTwoWeekRange'),
+                                'fifty_two_week_low': stock_data.get('fiftyTwoWeekLow'),
+                                'fifty_two_week_high': stock_data.get('fiftyTwoWeekHigh'),
+                                
+                                # Métricas adicionais
+                                'price_earnings': stock_data.get('priceEarnings'),
+                                'earnings_per_share': stock_data.get('earningsPerShare'),
+                                
+                                # Indicadores fundamentais
                                 'div_yield': stock_data.get('dividendYield'),
                                 'pl': stock_data.get('forwardPE') or stock_data.get('trailingPE'),
                                 'pvp': stock_data.get('priceToBook'),
@@ -203,6 +253,7 @@ class ProfessionalAPIService:
                                 'div_liquida_patrim': stock_data.get('debtToEquity'),
                                 'roic': stock_data.get('returnOnAssets'),
                                 'cresc_receita_5a': stock_data.get('revenueGrowth'),
+                                
                                 'fonte_dados': 'brapi_batch',
                                 'data_atualizacao': datetime.now().isoformat(),
                                 'volume': stock_data.get('regularMarketVolume'),

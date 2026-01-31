@@ -18,6 +18,7 @@ def get_ranking():
         # Parâmetros
         limit = request.args.get('limit', 50, type=int)
         sector = request.args.get('sector')
+        asset_class = request.args.get('asset_class')
         page = request.args.get('page', 1, type=int)
         
         # Validar limit
@@ -36,7 +37,8 @@ def get_ranking():
             'data': [stock.to_dict() for stock in stocks],
             'count': len(stocks),
             'page': page,
-            'sector_filter': sector
+            'sector_filter': sector,
+            'asset_class_filter': asset_class
         }
         
         return jsonify(data)
