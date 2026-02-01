@@ -1,0 +1,258 @@
+{% extends "base.html" %}
+
+{% block title %}Cadastro - Stonks{% endblock %}
+
+{% block content %}
+<div class="row justify-content-center">
+    <div class="col-md-6 col-lg-5">
+        <div class="card shadow">
+            <div class="card-header bg-success text-white text-center">
+                <h4><i class="fas fa-user-plus"></i> Criar Conta</h4>
+            </div>
+            <div class="card-body">
+                <form method="POST" id="registerForm">
+                    <div class="mb-3">
+                        <label for="nome" class="form-label">Nome Completo</label>
+                        <div class="input-group">
+                            <span class="input-group-text"><i class="fas fa-user"></i></span>
+                            <input type="text" class="form-control" id="nome" name="nome" 
+                                   value="{{ request.form.nome or '' }}" required>
+                        </div>
+                    </div>
+                    
+                    <div class="mb-3">
+                        <label for="email" class="form-label">Email</label>
+                        <div class="input-group">
+                            <span class="input-group-text"><i class="fas fa-envelope"></i></span>
+                            <input type="email" class="form-control" id="email" name="email" 
+                                   value="{{ request.form.email or '' }}" required>
+                            <div class="invalid-feedback">
+                                Email já cadastrado
+                            </div>
+                        </div>
+                        <small class="form-text text-muted">Enviaremos um email de verificação</small>
+                    </div>
+                    
+                    <div class="mb-3">
+                        <label for="senha" class="form-label">Senha</label>
+                        <div class="input-group">
+                            <span class="input-group-text"><i class="fas fa-lock"></i></span>
+                            <input type="password" class="form-control" id="senha" name="senha" 
+                                   required minlength="6">
+                            <button class="btn btn-outline-secondary" type="button" id="toggleSenha">
+                                <i class="fas fa-eye"></i>
+                            </button>
+                        </div>
+                        <div class="form-text">Mínimo 6 caracteres</div>
+                        <div class="progress mt-2" style="height: 4px;">
+                            <div class="progress-bar" id="senhaStrength" role="progressbar"></div>
+                        </div>
+                    </div>
+                    
+                    <div class="mb-3">
+                        <label for="confirmar_senha" class="form-label">Confirmar Senha</label>
+                        <div class="input-group">
+                            <span class="input-group-text"><i class="fas fa-lock"></i></span>
+                            <input type="password" class="form-control" id="confirmar_senha" 
+                                   name="confirmar_senha" required>
+                            <div class="invalid-feedback">
+                                As senhas não coincidem
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <div class="mb-3">
+                        <div class="form-check">
+                            <input type="checkbox" class="form-check-input" id="termos" name="termos" required>
+                            <label class="form-check-label" for="termos">
+                                Li e aceito os <a href="#" data-bs-toggle="modal" data-bs-target="#termosModal">termos de uso</a>
+                                e a <a href="#" data-bs-toggle="modal" data-bs-target="#privacidadeModal">política de privacidade</a>
+                            </label>
+                        </div>
+                    </div>
+                    
+                    <div class="d-grid gap-2">
+                        <button type="submit" class="btn btn-success" id="btnCadastrar">
+                            <i class="fas fa-user-plus"></i> Criar Conta
+                        </button>
+                    </div>
+                </form>
+                
+                <hr>
+                
+                <div class="text-center">
+                    <p class="mb-0">
+                        Já tem uma conta? 
+                        <a href="{{ url_for('auth.login') }}" class="text-decoration-none">
+                            <strong>Faça login</strong>
+                        </a>
+                    </p>
+                </div>
+            </div>
+        </div>
+        
+        <!-- Card de benefícios -->
+        <div class="card mt-3 border-success">
+            <div class="card-body text-center">
+                <h6 class="card-title"><i class="fas fa-gift text-success"></i> Benefícios</h6>
+                <ul class="list-unstyled small text-muted">
+                    <li><i class="fas fa-check text-success"></i> Acompanhe suas compras de ativos</li>
+                    <li><i class="fas fa-check text-success"></i> Analise seu portfolio em tempo real</li>
+                    <li><i class="fas fa-check text-success"></i> Calcule lucros e prejuízos</li>
+                    <li><i class="fas fa-check text-success"></i> Exporte relatórios detalhados</li>
+                </ul>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Modal Termos de Uso -->
+<div class="modal fade" id="termosModal" tabindex="-1">
+    <div class="modal-dialog modal-lg">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">Termos de Uso</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <h6>1. Aceitação dos Termos</h6>
+                <p>Ao acessar e usar o Stonks, você aceita estar sujeito a estes termos de uso.</p>
+                
+                <h6>2. Uso do Serviço</h6>
+                <p>O Stonks é uma plataforma para acompanhamento de investimentos pessoais. As informações fornecidas não constituem recomendação de investimento.</p>
+                
+                <h6>3. Responsabilidade</h6>
+                <p>Você é responsável pela precisão das informações cadastradas e pela segurança de sua conta.</p>
+                
+                <h6>4. Privacidade</h6>
+                <p>Respeitamos sua privacidade e protegemos seus dados conforme nossa política de privacidade.</p>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Fechar</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Modal Política de Privacidade -->
+<div class="modal fade" id="privacidadeModal" tabindex="-1">
+    <div class="modal-dialog modal-lg">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">Política de Privacidade</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <h6>Coleta de Dados</h6>
+                <p>Coletamos apenas as informações necessárias para fornecer nossos serviços: nome, email e dados de suas transações.</p>
+                
+                <h6>Uso dos Dados</h6>
+                <p>Seus dados são usados exclusivamente para operacionalizar o serviço e melhorar sua experiência.</p>
+                
+                <h6>Segurança</h6>
+                <p>Implementamos medidas de segurança robustas para proteger suas informações contra acesso não autorizado.</p>
+                
+                <h6>Compartilhamento</h6>
+                <p>Não vendemos, trocamos ou compartilhamos suas informações pessoais com terceiros.</p>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Fechar</button>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    const senhaInput = document.getElementById('senha');
+    const confirmarSenhaInput = document.getElementById('confirmar_senha');
+    const emailInput = document.getElementById('email');
+    const toggleSenha = document.getElementById('toggleSenha');
+    const registerForm = document.getElementById('registerForm');
+    const btnCadastrar = document.getElementById('btnCadastrar');
+    
+    // Toggle senha
+    toggleSenha.addEventListener('click', function() {
+        const type = senhaInput.type === 'password' ? 'text' : 'password';
+        senhaInput.type = type;
+        
+        const icon = this.querySelector('i');
+        icon.className = type === 'password' ? 'fas fa-eye' : 'fas fa-eye-slash';
+    });
+    
+    // Verificar força da senha
+    senhaInput.addEventListener('input', function() {
+        const senha = this.value;
+        const strengthBar = document.getElementById('senhaStrength');
+        
+        let strength = 0;
+        if (senha.length >= 6) strength++;
+        if (senha.length >= 10) strength++;
+        if (/[a-z]/.test(senha)) strength++;
+        if (/[A-Z]/.test(senha)) strength++;
+        if (/[0-9]/.test(senha)) strength++;
+        if (/[^a-zA-Z0-9]/.test(senha)) strength++;
+        
+        strengthBar.className = 'progress-bar';
+        if (strength <= 2) {
+            strengthBar.style.width = '20%';
+            strengthBar.classList.add('bg-danger');
+        } else if (strength <= 4) {
+            strengthBar.style.width = '50%';
+            strengthBar.classList.add('bg-warning');
+        } else {
+            strengthBar.style.width = '100%';
+            strengthBar.classList.add('bg-success');
+        }
+    });
+    
+    // Verificar se senhas coincidem
+    function checkSenhas() {
+        const senha = senhaInput.value;
+        const confirmar = confirmarSenhaInput.value;
+        
+        if (confirmar && senha !== confirmar) {
+            confirmarSenhaInput.classList.add('is-invalid');
+            return false;
+        } else {
+            confirmarSenhaInput.classList.remove('is-invalid');
+            return true;
+        }
+    }
+    
+    confirmarSenhaInput.addEventListener('input', checkSenhas);
+    senhaInput.addEventListener('input', checkSenhas);
+    
+    // Verificar email em tempo real (simulado)
+    let emailCheckTimeout;
+    emailInput.addEventListener('input', function() {
+        clearTimeout(emailCheckTimeout);
+        const email = this.value;
+        
+        if (email.length > 3) {
+            emailCheckTimeout = setTimeout(() => {
+                // Simular verificação (em produção, faria requisição AJAX)
+                if (email.includes('taken')) {
+                    this.classList.add('is-invalid');
+                } else {
+                    this.classList.remove('is-invalid');
+                }
+            }, 500);
+        }
+    });
+    
+    // Validação do formulário
+    registerForm.addEventListener('submit', function(e) {
+        if (!checkSenhas()) {
+            e.preventDefault();
+            return false;
+        }
+        
+        btnCadastrar.disabled = true;
+        btnCadastrar.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Cadastrando...';
+    });
+});
+</script>
+{% endblock %}

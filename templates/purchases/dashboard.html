@@ -1,0 +1,350 @@
+{% extends "base.html" %}
+
+{% block title %}Meu Portfolio - Stonks{% endblock %}
+
+{% block content %}
+<div class="d-flex justify-content-between align-items-center mb-4">
+    <h2><i class="fas fa-chart-pie"></i> Meu Portfolio</h2>
+    <div class="btn-group">
+        <button class="btn btn-outline-primary" onclick="atualizarDados()">
+            <i class="fas fa-sync-alt"></i> Atualizar
+        </button>
+        <a href="{{ url_for('purchases.new_purchase') }}" class="btn btn-success">
+            <i class="fas fa-plus"></i> Nova Compra
+        </a>
+    </div>
+</div>
+
+<!-- Resumo Geral -->
+<div class="row mb-4">
+    <div class="col-md-3">
+        <div class="card text-center border-primary">
+            <div class="card-body">
+                <h5 class="text-primary">R$ {{ "%.2f"|format(portfolio.total_investido or 0) }}</h5>
+                <small class="text-muted">Total Investido</small>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-3">
+        <div class="card text-center border-success">
+            <div class="card-body">
+                <h5 class="text-success">R$ {{ "%.2f"|format(portfolio.valor_atual or 0) }}</h5>
+                <small class="text-muted">Valor Atual</small>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-3">
+        <div class="card text-center border-info">
+            <div class="card-body">
+                <h5 class="text-info">
+                    {% if portfolio.resultado_total > 0 %}+{% endif %}
+                    R$ {{ "%.2f"|format(portfolio.resultado_total or 0) }}
+                </h5>
+                <small class="text-muted">Resultado Total</small>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-3">
+        <div class="card text-center {% if portfolio.rentabilidade_total >= 0 %}border-success{% else %}border-danger{% endif %}">
+            <div class="card-body">
+                <h5 class="{% if portfolio.rentabilidade_total >= 0 %}text-success{% else %}text-danger{% endif %}">
+                    {% if portfolio.rentabilidade_total > 0 %}+{% endif %}
+                    {{ "%.2f"|format(portfolio.rentabilidade_total) }}%
+                </h5>
+                <small class="text-muted">Rentabilidade</small>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Gráficos -->
+<div class="row mb-4">
+    <div class="col-md-6">
+        <div class="card">
+            <div class="card-header">
+                <h6><i class="fas fa-chart-pie"></i> Distribuição por Ativo</h6>
+            </div>
+            <div class="card-body">
+                <canvas id="portfolioPieChart" width="400" height="300"></canvas>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-6">
+        <div class="card">
+            <div class="card-header">
+                <h6><i class="fas fa-chart-bar"></i> Top 5 Ativos</h6>
+            </div>
+            <div class="card-body">
+                <canvas id="topAtivosChart" width="400" height="300"></canvas>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Tabela Detalhada -->
+<div class="card">
+    <div class="card-header">
+        <h6><i class="fas fa-list"></i> Posição Atual por Ativo</h6>
+    </div>
+    <div class="card-body">
+        {% if portfolio.posicoes %}
+        <div class="table-responsive">
+            <table class="table table-striped table-hover">
+                <thead>
+                    <tr>
+                        <th>Ativo</th>
+                        <th>Quantidade</th>
+                        <th>Preço Médio</th>
+                        <th>Preço Atual</th>
+                        <th>Total Investido</th>
+                        <th>Valor Atual</th>
+                        <th>Resultado</th>
+                        <th>%</th>
+                        <th>Ações</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for posicao in portfolio.posicoes %}
+                    <tr>
+                        <td>
+                            <strong>{{ posicao.ticker }}</strong>
+                            <br>
+                            <small class="text-muted">{{ posicao.nome_ativo }}</small>
+                        </td>
+                        <td>{{ posicao.quantidade_total }}</td>
+                        <td class="indicator-value">R$ {{ "%.2f"|format(posicao.preco_medio or 0) }}</td>
+                        <td class="indicator-value">R$ {{ "%.2f"|format(posicao.preco_atual or 0) }}</td>
+                        <td class="indicator-value">R$ {{ "%.2f"|format(posicao.custo_total or 0) }}</td>
+                        <td class="indicator-value">R$ {{ "%.2f"|format(posicao.valor_atual or 0) }}</td>
+                        <td class="indicator-value {% if posicao.resultado > 0 %}positive{% elif posicao.resultado < 0 %}negative{% endif %}">
+                            {% if posicao.resultado > 0 %}+{% endif %}R$ {{ "%.2f"|format(posicao.resultado or 0) }}
+                        </td>
+                        <td class="{% if posicao.resultado_percentual > 0 %}positive{% elif posicao.resultado_percentual < 0 %}negative{% endif %}">
+                            {% if posicao.resultado_percentual > 0 %}+{% endif %}{{ "%.2f"|format(posicao.resultado_percentual) }}%
+                        </td>
+                        <td>
+                            <div class="btn-group btn-group-sm">
+                                <a href="{{ url_for('purchases.index', ticker=posicao.ticker) }}" 
+                                   class="btn btn-outline-primary" title="Ver compras">
+                                    <i class="fas fa-list"></i>
+                                </a>
+                                <a href="{{ url_for('purchases.new_purchase', ticker=posicao.ticker) }}" 
+                                   class="btn btn-outline-success" title="Comprar mais">
+                                    <i class="fas fa-plus"></i>
+                                </a>
+                            </div>
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+                <tfoot class="table-dark">
+                    <tr>
+                        <th colspan="4">Total</th>
+                        <th>R$ {{ "%.2f"|format(portfolio.total_investido or 0) }}</th>
+                        <th>R$ {{ "%.2f"|format(portfolio.valor_atual or 0) }}</th>
+                        <th class="{% if portfolio.resultado_total > 0 %}text-success{% elif portfolio.resultado_total < 0 %}text-danger{% endif %}">
+                            {% if portfolio.resultado_total > 0 %}+{% endif %}R$ {{ "%.2f"|format(portfolio.resultado_total or 0) }}
+                        </th>
+                        <th class="{% if portfolio.rentabilidade_total >= 0 %}text-success{% else %}text-danger{% endif %}">
+                            {% if portfolio.rentabilidade_total > 0 %}+{% endif %}{{ "%.2f"|format(portfolio.rentabilidade_total) }}%
+                        </th>
+                        <th></th>
+                    </tr>
+                </tfoot>
+            </table>
+        </div>
+        {% else %}
+        <div class="text-center py-5">
+            <i class="fas fa-chart-pie fa-3x text-muted mb-3"></i>
+            <h5 class="text-muted">Nenhuma posição encontrada</h5>
+            <p class="text-muted">Comece registrando suas compras para visualizar seu portfolio.</p>
+            <a href="{{ url_for('purchases.new_purchase') }}" class="btn btn-success">
+                <i class="fas fa-plus"></i> Primeira Compra
+            </a>
+        </div>
+        {% endif %}
+    </div>
+</div>
+
+<!-- Análise por Setor -->
+{% if portfolio.analise_setor %}
+<div class="card mt-4">
+    <div class="card-header">
+        <h6><i class="fas fa-industry"></i> Análise por Setor</h6>
+    </div>
+    <div class="card-body">
+        <div class="row">
+            {% for setor, dados in portfolio.analise_setor.items() %}
+            <div class="col-md-4 mb-3">
+                <div class="card border-info">
+                    <div class="card-body text-center">
+                        <h6 class="text-info">{{ setor }}</h6>
+                        <h5>R$ {{ "%.2f"|format(dados.valor_atual or 0) }}</h5>
+                        <small class="text-muted">{{ "%.1f"|format(dados.percentual) }}% do portfolio</small>
+                    </div>
+                </div>
+            </div>
+            {% endfor %}
+        </div>
+    </div>
+</div>
+{% endif %}
+{% endblock %}
+
+{% block extra_css %}
+<style>
+.positive {
+    color: #28a745;
+}
+
+.negative {
+    color: #dc3545;
+}
+
+.indicator-value {
+    font-family: 'Courier New', monospace;
+    text-align: right;
+}
+
+.card {
+    transition: transform 0.2s;
+}
+
+.card:hover {
+    transform: translateY(-2px);
+}
+</style>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    // Inicializar gráficos
+    inicializarGraficos();
+});
+
+function inicializarGraficos() {
+    // Dados do portfolio (passados via data attributes)
+    const portfolioData = document.getElementById('portfolioPieChart');
+    if (portfolioData) {
+        const posicoes = JSON.parse(portfolioData.dataset.posicoes || '[]');
+        
+        new Chart(portfolioData, {
+            type: 'pie',
+            data: {
+                labels: posicoes.map(p => p.ticker),
+                datasets: [{
+                    data: posicoes.map(p => p.valor_atual),
+                    backgroundColor: [
+                        '#007bff', '#28a745', '#ffc107', '#dc3545', '#6f42c1',
+                        '#fd7e14', '#20c997', '#e83e8c', '#6c757d', '#17a2b8'
+                    ],
+                    borderWidth: 2
+                }]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                plugins: {
+                    legend: {
+                        position: 'bottom'
+                    },
+                    tooltip: {
+                        callbacks: {
+                            label: function(context) {
+                                const label = context.label || '';
+                                const value = 'R$ ' + context.parsed.toLocaleString('pt-BR', {minimumFractionDigits: 2});
+                                const total = context.dataset.data.reduce((a, b) => a + b, 0);
+                                const percentage = ((context.parsed / total) * 100).toFixed(1);
+                                return label + ': ' + value + ' (' + percentage + '%)';
+                            }
+                        }
+                    }
+                }
+            }
+        });
+    }
+    
+    // Gráfico de Barras - Top 5 Ativos
+    const barCtx = document.getElementById('topAtivosChart');
+    if (barCtx) {
+        const posicoes = JSON.parse(barCtx.dataset.posicoes || '[]');
+        const topAtivos = posicoes.slice(0, 5);
+        
+        new Chart(barCtx, {
+            type: 'bar',
+            data: {
+                labels: topAtivos.map(p => p.ticker),
+                datasets: [{
+                    label: 'Valor Atual',
+                    data: topAtivos.map(p => p.valor_atual),
+                    backgroundColor: '#28a745',
+                    borderColor: '#1e7e34',
+                    borderWidth: 1
+                }]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                scales: {
+                    y: {
+                        beginAtZero: true,
+                        ticks: {
+                            callback: function(value) {
+                                return 'R$ ' + value.toLocaleString('pt-BR');
+                            }
+                        }
+                    }
+                },
+                plugins: {
+                    legend: {
+                        display: false
+                    },
+                    tooltip: {
+                        callbacks: {
+                            label: function(context) {
+                                return 'Valor: R$ ' + context.parsed.y.toLocaleString('pt-BR', {minimumFractionDigits: 2});
+                            }
+                        }
+                    }
+                }
+            }
+        });
+    }
+}
+
+function atualizarDados() {
+    const btn = event.target.closest('button');
+    const originalHtml = btn.innerHTML;
+    
+    btn.disabled = true;
+    btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Atualizando...';
+    
+    // Simular atualização (em produção, faria requisição AJAX)
+    setTimeout(() => {
+        location.reload();
+    }, 1500);
+}
+
+// Formatar valores
+function formatCurrency(value) {
+    return 'R$ ' + parseFloat(value).toLocaleString('pt-BR', {
+        minimumFractionDigits: 2,
+        maximumFractionDigits: 2
+    });
+}
+</script>
+
+<!-- Filtro personalizado para Jinja2 -->
+<script>
+// Registrar filtro de moeda (caso não exista)
+if (typeof formatCurrency === 'undefined') {
+    window.formatCurrency = function(value) {
+        return 'R$ ' + parseFloat(value).toLocaleString('pt-BR', {
+            minimumFractionDigits: 2,
+            maximumFractionDigits: 2
+        });
+    };
+}
+</script>
+{% endblock %}

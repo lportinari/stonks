@@ -1,0 +1,293 @@
+{% extends "base.html" %}
+
+{% block title %}Minhas Compras - Stonks{% endblock %}
+
+{% block content %}
+<div class="d-flex justify-content-between align-items-center mb-4">
+    <h2><i class="fas fa-shopping-cart"></i> Minhas Compras</h2>
+    <a href="{{ url_for('purchases.new_purchase') }}" class="btn btn-success">
+        <i class="fas fa-plus"></i> Nova Compra
+    </a>
+</div>
+
+<!-- Filtros -->
+<div class="card mb-4">
+    <div class="card-header">
+        <h6><i class="fas fa-filter"></i> Filtros</h6>
+    </div>
+    <div class="card-body">
+        <form method="GET" class="row g-3">
+            <div class="col-md-3">
+                <label for="ticker" class="form-label">Ticker</label>
+                <input type="text" class="form-control" id="ticker" name="ticker" 
+                       value="{{ filtros.ticker or '' }}" placeholder="Ex: PETR4">
+            </div>
+            
+            <div class="col-md-2">
+                <label for="data_inicio" class="form-label">Data Inicial</label>
+                <input type="date" class="form-control" id="data_inicio" name="data_inicio" 
+                       value="{{ filtros.data_inicio or '' }}">
+            </div>
+            
+            <div class="col-md-2">
+                <label for="data_fim" class="form-label">Data Final</label>
+                <input type="date" class="form-control" id="data_fim" name="data_fim" 
+                       value="{{ filtros.data_fim or '' }}">
+            </div>
+            
+            <div class="col-md-2">
+                <label for="ativos_vendidos" class="form-label">Status</label>
+                <select class="form-select" id="ativos_vendidos" name="ativos_vendidos">
+                    <option value="">Todos</option>
+                    <option value="nao" {{ 'selected' if filtros.ativos_vendidos == 'nao' }}>Ativos</option>
+                    <option value="sim" {{ 'selected' if filtros.ativos_vendidos == 'sim' }}>Vendidos</option>
+                </select>
+            </div>
+            
+            <div class="col-md-2">
+                <label for="ordenacao" class="form-label">Ordenar por</label>
+                <select class="form-select" id="ordenacao" name="ordenacao">
+                    <option value="data_compra_desc" {{ 'selected' if filtros.ordenacao == 'data_compra_desc' }}>
+                        Data (mais recente)
+                    </option>
+                    <option value="data_compra_asc" {{ 'selected' if filtros.ordenacao == 'data_compra_asc' }}>
+                        Data (mais antiga)
+                    </option>
+                    <option value="ticker_asc" {{ 'selected' if filtros.ordenacao == 'ticker_asc' }}>
+                        Ticker (A-Z)
+                    </option>
+                    <option value="valor_desc" {{ 'selected' if filtros.ordenacao == 'valor_desc' }}>
+                        Valor (maior)
+                    </option>
+                </select>
+            </div>
+            
+            <div class="col-md-1">
+                <label class="form-label d-block">&nbsp;</label>
+                <button type="submit" class="btn btn-primary w-100">
+                    <i class="fas fa-search"></i>
+                </button>
+            </div>
+        </form>
+    </div>
+</div>
+
+<!-- Resumo Rápido -->
+<div class="row mb-4">
+    <div class="col-md-3">
+        <div class="card text-center">
+            <div class="card-body">
+                <h5 class="text-primary">{{ pagination.total }}</h5>
+                <small class="text-muted">Total de Compras</small>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-3">
+        <div class="card text-center">
+            <div class="card-body">
+                <h5 class="text-success">
+                    {% set total_investido = purchases | sum(attribute='custo_total') %}
+                    R$ {{ "%.2f"|format(total_investido) }}
+                </h5>
+                <small class="text-muted">Total Investido</small>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-3">
+        <div class="card text-center">
+            <div class="card-body">
+                <h5 class="text-info">
+                    {{ purchases | length }}
+                </h5>
+                <small class="text-muted">Tipos de Ativos</small>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-3">
+        <div class="card text-center">
+            <div class="card-body">
+                <h5 class="text-warning">
+                    R$ 0.00
+                </h5>
+                <small class="text-muted">Resultado Atual</small>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Tabela de Compras -->
+<div class="card">
+    <div class="card-header">
+        <h6><i class="fas fa-list"></i> Lista de Compras</h6>
+    </div>
+    <div class="card-body">
+        {% if purchases %}
+        <div class="table-responsive">
+            <table class="table table-striped table-hover">
+                <thead>
+                    <tr>
+                        <th>Data</th>
+                        <th>Ticker</th>
+                        <th>Ativo</th>
+                        <th>Quantidade</th>
+                        <th>Preço Médio</th>
+                        <th>Total Investido</th>
+                        <th>Preço Atual</th>
+                        <th>Resultado</th>
+                        <th>%</th>
+                        <th>Ações</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for purchase in purchases %}
+                    <tr>
+                        <td>{{ purchase.data_compra[:10] }}</td>
+                        <td>
+                            <strong>{{ purchase.ticker }}</strong>
+                        </td>
+                        <td>{{ purchase.nome_ativo }}</td>
+                        <td>{{ purchase.quantidade }}</td>
+                        <td class="indicator-value">R$ {{ "%.2f"|format(purchase.preco_medio) }}</td>
+                        <td class="indicator-value">R$ {{ "%.2f"|format(purchase.custo_total) }}</td>
+                        <td class="indicator-value">-</td>
+                        <td class="indicator-value">-</td>
+                        <td>-</td>
+                        <td>
+                            <div class="btn-group btn-group-sm" role="group">
+                                <a href="{{ url_for('purchases.edit_purchase', purchase_id=purchase.id) }}" 
+                                   class="btn btn-outline-warning" title="Editar">
+                                    <i class="fas fa-edit"></i>
+                                </a>
+                                <button type="button" class="btn btn-outline-danger" 
+                                        onclick="confirmarExclusao('{{ purchase.id }}')" title="Excluir">
+                                    <i class="fas fa-trash"></i>
+                                </button>
+                            </div>
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+        
+        <!-- Paginação -->
+        {% if pagination.pages > 1 %}
+        <nav aria-label="Navegação de páginas">
+            <ul class="pagination justify-content-center">
+                {% if pagination.page > 1 %}
+                <li class="page-item">
+                    <a class="page-link" href="{{ url_for('purchases.index', page=pagination.page-1, **filtros) }}">
+                        <i class="fas fa-chevron-left"></i>
+                    </a>
+                </li>
+                {% endif %}
+                
+                {% for page_num in range(1, pagination.pages + 1) %}
+                    {% if page_num == pagination.page %}
+                    <li class="page-item active">
+                        <span class="page-link">{{ page_num }}</span>
+                    </li>
+                    {% elif page_num <= 3 or page_num >= pagination.pages - 2 or (page_num >= pagination.page - 1 and page_num <= pagination.page + 1) %}
+                    <li class="page-item">
+                        <a class="page-link" href="{{ url_for('purchases.index', page=page_num, **filtros) }}">
+                            {{ page_num }}
+                        </a>
+                    </li>
+                    {% elif page_num == 4 or page_num == pagination.pages - 3 %}
+                    <li class="page-item disabled">
+                        <span class="page-link">...</span>
+                    </li>
+                    {% endif %}
+                {% endfor %}
+                
+                {% if pagination.page < pagination.pages %}
+                <li class="page-item">
+                    <a class="page-link" href="{{ url_for('purchases.index', page=pagination.page+1, **filtros) }}">
+                        <i class="fas fa-chevron-right"></i>
+                    </a>
+                </li>
+                {% endif %}
+            </ul>
+        </nav>
+        {% endif %}
+        
+        {% else %}
+        <div class="text-center py-5">
+            <i class="fas fa-shopping-cart fa-3x text-muted mb-3"></i>
+            <h5 class="text-muted">Nenhuma compra encontrada</h5>
+            <p class="text-muted">
+                {% if filtros.ticker or filtros.data_inicio or filtros.data_fim %}
+                Tente ajustar os filtros ou 
+                <a href="{{ url_for('purchases.index') }}">limpar todos os filtros</a>.
+                {% else %}
+                Comece registrando sua primeira compra.
+                {% endif %}
+            </p>
+            {% if not filtros.ticker and not filtros.data_inicio and not filtros.data_fim %}
+            <a href="{{ url_for('purchases.new_purchase') }}" class="btn btn-success">
+                <i class="fas fa-plus"></i> Primeira Compra
+            </a>
+            {% endif %}
+        </div>
+        {% endif %}
+    </div>
+</div>
+
+<!-- Modal de confirmação de exclusão -->
+<div class="modal fade" id="confirmarExclusaoModal" tabindex="-1">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">Confirmar Exclusão</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <p>Tem certeza que deseja excluir esta compra?</p>
+                <p class="text-warning">
+                    <i class="fas fa-exclamation-triangle"></i>
+                    Esta ação não pode ser desfeita.
+                </p>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
+                <form id="formExclusao" method="POST" style="display: inline;">
+                    <button type="submit" class="btn btn-danger">
+                        <i class="fas fa-trash"></i> Excluir
+                    </button>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+let purchaseIdParaExcluir = null;
+
+function confirmarExclusao(purchaseId) {
+    purchaseIdParaExcluir = purchaseId;
+    const form = document.getElementById('formExclusao');
+    form.action = '/purchases/' + purchaseId + '/delete';
+    
+    const modal = new bootstrap.Modal(document.getElementById('confirmarExclusaoModal'));
+    modal.show();
+}
+
+// Limpar filtros
+document.addEventListener('DOMContentLoaded', function() {
+    const limparFiltrosBtn = document.createElement('button');
+    limparFiltrosBtn.type = 'button';
+    limparFiltrosBtn.className = 'btn btn-outline-secondary ms-2';
+    limparFiltrosBtn.innerHTML = '<i class="fas fa-times"></i> Limpar';
+    limparFiltrosBtn.onclick = function() {
+        window.location.href = '{{ url_for("purchases.index") }}';
+    };
+    
+    const submitBtn = document.querySelector('button[type="submit"]');
+    if (submitBtn && submitBtn.closest('.col-md-1')) {
+        submitBtn.closest('.col-md-1').appendChild(limparFiltrosBtn);
+    }
+});
+</script>
+{% endblock %}
