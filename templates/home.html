@@ -1,0 +1,171 @@
+{% extends "base.html" %}
+
+{% block title %}Stonks - Análise de Ações e Investimentos{% endblock %}
+
+{% block content %}
+<div class="row">
+    <div class="col-12">
+        <div class="text-center mb-5">
+            <h1 class="display-4 text-primary">
+                <i class="fas fa-chart-line"></i> Stonks
+            </h1>
+            <p class="lead text-muted">
+                Sistema completo de análise de ações da Bovespa e ferramentas de investimento
+            </p>
+        </div>
+    </div>
+</div>
+
+<!-- Cards Principais -->
+<div class="row mb-5">
+    <div class="col-md-6 mb-4">
+        <div class="card h-100 shadow-sm border-0">
+            <div class="card-body text-center p-4">
+                <div class="mb-3">
+                    <i class="fas fa-trophy fa-3x text-warning"></i>
+                </div>
+                <h3 class="card-title">Ranking de Ações</h3>
+                <p class="card-text text-muted">
+                    Análise completa de ações da Bovespa com indicadores fundamentalistas, 
+                    filtros avançados e scores personalizados.
+                </p>
+                <ul class="list-unstyled text-start">
+                    <li><i class="fas fa-check text-success"></i> Indicadores fundamentalistas</li>
+                    <li><i class="fas fa-check text-success"></i> Filtros por setor e classe</li>
+                    <li><i class="fas fa-check text-success"></i> Comparação entre ativos</li>
+                    <li><i class="fas fa-check text-success"></i> Paginação e ordenação</li>
+                </ul>
+                <a href="{{ url_for('main.ranking') }}" class="btn btn-primary btn-lg">
+                    <i class="fas fa-chart-bar"></i> Ver Ranking Completo
+                </a>
+            </div>
+        </div>
+    </div>
+    
+    <div class="col-md-6 mb-4">
+        <div class="card h-100 shadow-sm border-0">
+            <div class="card-body text-center p-4">
+                <div class="mb-3">
+                    <i class="fas fa-calculator fa-3x text-success"></i>
+                </div>
+                <h3 class="card-title">Simulador de Juros</h3>
+                <p class="card-text text-muted">
+                    Calcule o crescimento dos seus investimentos com juros compostos, 
+                    projeções detalhadas e gráficos interativos.
+                </p>
+                <ul class="list-unstyled text-start">
+                    <li><i class="fas fa-check text-success"></i> Aportes inicial e mensais</li>
+                    <li><i class="fas fa-check text-success"></i> Taxa de juros personalizada</li>
+                    <li><i class="fas fa-check text-success"></i> Tabela detalhada mês a mês</li>
+                    <li><i class="fas fa-check text-success"></i> Gráficos de evolução</li>
+                </ul>
+                <a href="{{ url_for('main.simulador') }}" class="btn btn-success btn-lg">
+                    <i class="fas fa-chart-line"></i> Simular Investimentos
+                </a>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Features Adicionais -->
+<div class="row mb-5">
+    <div class="col-12">
+        <h3 class="text-center mb-4">Mais Ferramentas</h3>
+    </div>
+    
+    <div class="col-md-4 mb-3">
+        <div class="card h-100">
+            <div class="card-body text-center">
+                <i class="fas fa-filter fa-2x text-info mb-2"></i>
+                <h5 class="card-title">Filtros Avançados</h5>
+                <p class="card-text small text-muted">
+                    Filtre ações por indicadores específicos como DY, P/L, ROE e mais.
+                </p>
+                <a href="{{ url_for('main.filter_stocks') }}" class="btn btn-outline-info btn-sm">
+                    <i class="fas fa-search"></i> Explorar Filtros
+                </a>
+            </div>
+        </div>
+    </div>
+    
+    <div class="col-md-4 mb-3">
+        <div class="card h-100">
+            <div class="card-body text-center">
+                <i class="fas fa-cog fa-2x text-secondary mb-2"></i>
+                <h5 class="card-title">Configuração</h5>
+                <p class="card-text small text-muted">
+                    Personalize os pesos dos indicadores para seu estilo de investimento.
+                </p>
+                <a href="{{ url_for('main.config') }}" class="btn btn-outline-secondary btn-sm">
+                    <i class="fas fa-sliders-h"></i> Configurar
+                </a>
+            </div>
+        </div>
+    </div>
+    
+    <div class="col-md-4 mb-3">
+        <div class="card h-100">
+            <div class="card-body text-center">
+                <i class="fas fa-code fa-2x text-dark mb-2"></i>
+                <h5 class="card-title">API</h5>
+                <p class="card-text small text-muted">
+                    Acesso programático aos dados e indicadores via REST API.
+                </p>
+                <a href="/api/ranking" target="_blank" class="btn btn-outline-dark btn-sm">
+                    <i class="fas fa-external-link-alt"></i> Ver API
+                </a>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Estatísticas Rápidas -->
+<div class="row">
+    <div class="col-12">
+        <div class="card bg-light">
+            <div class="card-body">
+                <h5 class="card-title">
+                    <i class="fas fa-chart-pie"></i> Visão Geral do Mercado
+                </h5>
+                <div class="row text-center">
+                    <div class="col-md-3">
+                        <h4 class="text-primary">{{ stats.total_stocks if stats else '0' }}</h4>
+                        <small class="text-muted">Ações Analisadas</small>
+                    </div>
+                    <div class="col-md-3">
+                        <h4 class="text-success">{{ "%.1f"|format(stats.avg_score) if stats else '0.0' }}</h4>
+                        <small class="text-muted">Score Médio</small>
+                    </div>
+                    <div class="col-md-3">
+                        <h4 class="text-info">{{ stats.sectors|length if stats and stats.sectors else '0' }}</h4>
+                        <small class="text-muted">Setores</small>
+                    </div>
+                    <div class="col-md-3">
+                        <h4 class="text-warning">{{ "%.1f"|format(stats.top_score) if stats else '0.0' }}</h4>
+                        <small class="text-muted">Score Máximo</small>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    // Animação simples para os cards
+    const cards = document.querySelectorAll('.card');
+    cards.forEach((card, index) => {
+        card.style.opacity = '0';
+        card.style.transform = 'translateY(20px)';
+        card.style.transition = 'all 0.5s ease';
+        
+        setTimeout(() => {
+            card.style.opacity = '1';
+            card.style.transform = 'translateY(0)';
+        }, index * 100);
+    });
+});
+</script>
+{% endblock %}
