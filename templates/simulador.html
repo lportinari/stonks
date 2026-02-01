@@ -1,0 +1,556 @@
+{% extends "base.html" %}
+
+{% block title %}Simulador de Juros Compostos - Stonks{% endblock %}
+
+{% block extra_css %}
+<style>
+    /* Remover setinhas dos inputs de número (exceto taxa de juros) */
+    input[type="number"]::-webkit-outer-spin-button,
+    input[type="number"]::-webkit-inner-spin-button {
+        -webkit-appearance: none;
+        margin: 0;
+    }
+    
+    input[type="number"] {
+        -moz-appearance: textfield;
+    }
+    
+    /* Permitir setinhas apenas no campo de taxa de juros */
+    #taxaJuros::-webkit-outer-spin-button,
+    #taxaJuros::-webkit-inner-spin-button {
+        -webkit-appearance: auto;
+        margin: 0;
+    }
+    
+    #taxaJuros {
+        -moz-appearance: auto;
+    }
+    
+    /* Ajustes para melhor visualização */
+    .input-group .form-control {
+        border-top-right-radius: 0;
+        border-bottom-right-radius: 0;
+    }
+    
+    .input-group-text {
+        border-top-left-radius: 0;
+        border-bottom-left-radius: 0;
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="row">
+    <div class="col-12">
+        <div class="d-flex justify-content-between align-items-center mb-4">
+            <h1><i class="fas fa-calculator text-success"></i> Simulador de Juros Compostos</h1>
+            <a href="{{ url_for('main.index') }}" class="btn btn-outline-secondary">
+                <i class="fas fa-home"></i> Voltar para Home
+            </a>
+        </div>
+    </div>
+</div>
+
+<!-- Formulário do Simulador -->
+<div class="row mb-4">
+    <div class="col-md-6">
+        <div class="card">
+            <div class="card-header">
+                <h5><i class="fas fa-edit"></i> Parâmetros do Investimento</h5>
+            </div>
+            <div class="card-body">
+                <form id="simulatorForm">
+                    <div class="mb-3">
+                        <label for="aporteInicial" class="form-label">
+                            <i class="fas fa-money-bill-wave"></i> Valor Inicial (R$)
+                        </label>
+                        <div class="input-group">
+                            <span class="input-group-text">R$</span>
+                            <input type="number" 
+                                   class="form-control" 
+                                   id="aporteInicial" 
+                                   name="aporte_inicial"
+                                   step="0.01" 
+                                   min="0" 
+                                   value="1000.00"
+                                   required
+                                   style="-moz-appearance: textfield;">
+                        </div>
+                        <div class="form-text">Valor que a pessoa já tem investido atualmente.</div>
+                    </div>
+                    
+                    <div class="mb-3">
+                        <label for="aporteMensal" class="form-label">
+                            <i class="fas fa-calendar-alt"></i> Aporte Mensal (R$)
+                        </label>
+                        <div class="input-group">
+                            <span class="input-group-text">R$</span>
+                            <input type="number" 
+                                   class="form-control" 
+                                   id="aporteMensal" 
+                                   name="aporte_mensal"
+                                   step="0.01" 
+                                   min="0" 
+                                   value="500.00"
+                                   required
+                                   style="-moz-appearance: textfield;">
+                        </div>
+                        <div class="form-text">Valor que será adicionado todos os meses.</div>
+                    </div>
+                    
+                    <div class="mb-3">
+                        <label for="taxaJuros" class="form-label">
+                            <i class="fas fa-percentage"></i> Taxa de Juros
+                        </label>
+                        <div class="input-group">
+                            <input type="number" 
+                                   class="form-control" 
+                                   id="taxaJuros" 
+                                   name="taxa_juros"
+                                   step="0.01" 
+                                   min="0" 
+                                   max="100" 
+                                   value="12.00"
+                                   required>
+                            <span class="input-group-text">%</span>
+                            <select class="form-select" id="periodoTaxa" name="periodo_taxa" style="max-width: 120px;">
+                                <option value="mensal">ao mês</option>
+                                <option value="anual" selected>ao ano</option>
+                            </select>
+                        </div>
+                        <div class="form-text">Taxa de juros esperada (ex: 1.0% ao mês ou 12% ao ano).</div>
+                    </div>
+                    
+                    <div class="mb-3">
+                        <label for="periodo" class="form-label">
+                            <i class="fas fa-clock"></i> Período
+                        </label>
+                        <div class="input-group">
+                            <input type="number" 
+                                   class="form-control" 
+                                   id="periodo" 
+                                   name="periodo"
+                                   step="1" 
+                                   min="1" 
+                                   max="600" 
+                                   value="1"
+                                   required
+                                   style="-moz-appearance: textfield;">
+                            <select class="form-select" id="periodoTipo" name="periodo_tipo" style="max-width: 120px;">
+                                <option value="meses">Meses</option>
+                                <option value="anos" selected>Anos</option>
+                            </select>
+                        </div>
+                        <div class="form-text">Duração do investimento.</div>
+                    </div>
+                    
+                    <div class="d-grid gap-2">
+                        <button type="submit" class="btn btn-success btn-lg">
+                            <i class="fas fa-chart-line"></i> Calcular Investimento
+                        </button>
+                        <button type="button" class="btn btn-outline-secondary" onclick="resetForm()">
+                            <i class="fas fa-undo"></i> Limpar Valores
+                        </button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+    
+    <div class="col-md-6">
+        <div class="card">
+            <div class="card-header">
+                <h5><i class="fas fa-info-circle"></i> Como Funciona</h5>
+            </div>
+            <div class="card-body">
+                <div class="accordion" id="infoAccordion">
+                    <div class="accordion-item">
+                        <h2 class="accordion-header">
+                            <button class="accordion-button" type="button" data-bs-toggle="collapse" data-bs-target="#jurosCompostos">
+                                <i class="fas fa-calculator me-2"></i> Juros Compostos
+                            </button>
+                        </h2>
+                        <div id="jurosCompostos" class="accordion-collapse collapse show" data-bs-parent="#infoAccordion">
+                            <div class="accordion-body">
+                                <p>Juros compostos são quando os juros gerados em um período são adicionados ao principal, passando a renderar juros nos períodos seguintes. É o famoso "juros sobre juros".</p>
+                                <p><strong>Fórmula:</strong> M = P × (1 + i)^n</p>
+                                <ul>
+                                    <li>M = Montante final</li>
+                                    <li>P = Principal (aporte inicial)</li>
+                                    <li>i = Taxa de juros</li>
+                                    <li>n = Período</li>
+                                </ul>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <div class="accordion-item">
+                        <h2 class="accordion-header">
+                            <button class="accordion-button collapsed" type="button" data-bs-toggle="collapse" data-bs-target="#aportes">
+                                <i class="fas fa-plus-circle me-2"></i> Aportes Mensais
+                            </button>
+                        </h2>
+                        <div id="aportes" class="accordion-collapse collapse" data-bs-parent="#infoAccordion">
+                            <div class="accordion-body">
+                                <p>Os aportes mensais funcionam como uma série de investimentos iguais feitos em períodos regulares. Cada aporte terá seu próprio período de capitalização.</p>
+                                <p><strong>Exemplo:</strong> Se você investe R$ 100 por mês durante 12 meses a 1% ao mês:</p>
+                                <ul>
+                                    <li>1º aporte: renderá por 12 meses</li>
+                                    <li>2º aporte: renderá por 11 meses</li>
+                                    <li>...</li>
+                                    <li>12º aporte: renderá por 1 mês</li>
+                                </ul>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <div class="accordion-item">
+                        <h2 class="accordion-header">
+                            <button class="accordion-button collapsed" type="button" data-bs-toggle="collapse" data-bs-target="#dicas">
+                                <i class="fas fa-lightbulb me-2"></i> Dicas de Investimento
+                            </button>
+                        </h2>
+                        <div id="dicas" class="accordion-collapse collapse" data-bs-parent="#infoAccordion">
+                            <div class="accordion-body">
+                                <ul>
+                                    <li><strong>Consistência:</strong> Aportes regulares são mais importantes que valores altos</li>
+                                    <li><strong>Paciência:</strong> Juros compostos mostram seu poder no longo prazo</li>
+                                    <li><strong>Realismo:</strong> Use taxas conservadoras (0.5% a 1.5% ao mês para renda fixa)</li>
+                                    <li><strong>Diversificação:</strong> Não coloque todos os ovos na mesma cesta</li>
+                                    <li><strong>Reinvestimento:</strong> Sempre reinvesta os rendimentos</li>
+                                </ul>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Resultados (inicialmente oculto) -->
+<div id="resultados" style="display: none;">
+    <!-- Resumo dos Resultados -->
+    <div class="row mb-4">
+        <div class="col-md-3">
+            <div class="card bg-primary text-white">
+                <div class="card-body text-center">
+                    <h6 class="card-title">Total Investido</h6>
+                    <h3 id="totalInvestido">R$ 0,00</h3>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-3">
+            <div class="card bg-success text-white">
+                <div class="card-body text-center">
+                    <h6 class="card-title">Total Juros</h6>
+                    <h3 id="totalJuros">R$ 0,00</h3>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-3">
+            <div class="card bg-info text-white">
+                <div class="card-body text-center">
+                    <h6 class="card-title">Valor Final</h6>
+                    <h3 id="valorFinal">R$ 0,00</h3>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-3">
+            <div class="card bg-warning text-dark">
+                <div class="card-body text-center">
+                    <h6 class="card-title">Rentabilidade</h6>
+                    <h3 id="rentabilidade">0,00%</h3>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <!-- Gráfico e Tabela -->
+    <div class="row">
+        <div class="col-md-6">
+            <div class="card">
+                <div class="card-header">
+                    <h5><i class="fas fa-chart-line"></i> Evolução do Investimento</h5>
+                </div>
+                <div class="card-body">
+                    <canvas id="evolucaoChart" width="400" height="300"></canvas>
+                </div>
+            </div>
+        </div>
+        
+        <div class="col-md-6">
+            <div class="card">
+                <div class="card-header">
+                    <h5><i class="fas fa-table"></i> Detalhamento Mensal</h5>
+                </div>
+                <div class="card-body">
+                    <div class="table-responsive" style="max-height: 400px; overflow-y: auto;">
+                        <table class="table table-sm table-striped" id="detalhesTable">
+                            <thead class="table-dark sticky-top">
+                                <tr>
+                                    <th>Mês</th>
+                                    <th>Juros</th>
+                                    <th>Investido</th>
+                                    <th>Total de Juros</th>
+                                    <th>Acumulado</th>
+                                </tr>
+                            </thead>
+                            <tbody id="detalhesBody">
+                                <!-- Preenchido via JavaScript -->
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+let chartInstance = null;
+
+document.addEventListener('DOMContentLoaded', function() {
+    const form = document.getElementById('simulatorForm');
+    form.addEventListener('submit', function(e) {
+        e.preventDefault();
+        calcularInvestimento();
+    });
+});
+
+function calcularInvestimento() {
+    // Obter valores do formulário
+    const aporteInicial = parseFloat(document.getElementById('aporteInicial').value) || 0;
+    const aporteMensal = parseFloat(document.getElementById('aporteMensal').value) || 0;
+    const taxaJuros = parseFloat(document.getElementById('taxaJuros').value) / 100 || 0;
+    const periodo = parseInt(document.getElementById('periodo').value) || 0;
+    const periodoTipo = document.getElementById('periodoTipo').value;
+    const periodoTaxa = document.getElementById('periodoTaxa').value;
+    
+    // Converter período para meses se necessário
+    let periodoEmMeses = periodo;
+    if (periodoTipo === 'anos') {
+        periodoEmMeses = periodo * 12;
+    }
+    
+    // Converter taxa para mensal se necessário
+    let taxaMensal = taxaJuros;
+    if (periodoTaxa === 'anual') {
+        taxaMensal = Math.pow(1 + taxaJuros, 1/12) - 1;
+    }
+    
+    // Validar entrada
+    if (aporteInicial < 0 || aporteMensal < 0 || taxaJuros < 0 || periodo <= 0) {
+        showToast('Por favor, insira valores válidos e positivos.', 'error');
+        return;
+    }
+    
+    // Calcular evolução mensal
+    const dados = calcularEvolucao(aporteInicial, aporteMensal, taxaMensal, periodoEmMeses);
+    
+    // Exibir resultados
+    exibirResultados(dados);
+}
+
+function calcularEvolucao(aporteInicial, aporteMensal, taxaJuros, periodo) {
+    const dados = [];
+    let saldo = aporteInicial;
+    let totalInvestido = aporteInicial;
+    let totalJurosAcumulado = 0;
+    
+    // Adicionar mês 0 (valor inicial sem juros)
+    dados.push({
+        mes: 0,
+        juros: '--',
+        totalInvestido: aporteInicial,
+        totalJurosAcumulado: 0,
+        saldo: aporteInicial
+    });
+    
+    for (let mes = 1; mes <= periodo; mes++) {
+        // Calcular juros do mês
+        const jurosMes = saldo * taxaJuros;
+        
+        // Adicionar aporte mensal a partir do mês 1
+        saldo += aporteMensal;
+        totalInvestido += aporteMensal;
+        
+        // Adicionar juros
+        saldo += jurosMes;
+        
+        // Acumular juros
+        totalJurosAcumulado += jurosMes;
+        
+        // Salvar dados do mês
+        dados.push({
+            mes: mes,
+            juros: jurosMes,
+            totalInvestido: aporteInicial + (aporteMensal * mes),
+            totalJurosAcumulado: totalJurosAcumulado,
+            saldo: saldo
+        });
+    }
+    
+    return dados;
+}
+
+function exibirResultados(dados) {
+    if (dados.length === 0) return;
+    
+    const ultimoMes = dados[dados.length - 1];
+    const totalJuros = ultimoMes.saldo - ultimoMes.totalInvestido;
+    const rentabilidade = (totalJuros / ultimoMes.totalInvestido) * 100;
+    
+    // Atualizar cards de resumo
+    document.getElementById('totalInvestido').textContent = formatCurrency(ultimoMes.totalInvestido);
+    document.getElementById('totalJuros').textContent = formatCurrency(totalJuros);
+    document.getElementById('valorFinal').textContent = formatCurrency(ultimoMes.saldo);
+    document.getElementById('rentabilidade').textContent = formatPercent(rentabilidade / 100);
+    
+    // Preencher tabela detalhada
+    preencherTabela(dados);
+    
+    // Criar gráfico
+    criarGrafico(dados);
+    
+    // Exibir seção de resultados
+    document.getElementById('resultados').style.display = 'block';
+    
+    // Rolagem suave para os resultados
+    document.getElementById('resultados').scrollIntoView({ behavior: 'smooth' });
+}
+
+function preencherTabela(dados) {
+    const tbody = document.getElementById('detalhesBody');
+    tbody.innerHTML = '';
+    
+    dados.forEach(dado => {
+        const row = tbody.insertRow();
+        const jurosFormatado = dado.juros === '--' ? '--' : formatCurrency(dado.juros);
+        const totalJurosFormatado = dado.juros === '--' ? '--' : formatCurrency(dado.totalJurosAcumulado);
+        row.innerHTML = `
+            <td>${dado.mes}</td>
+            <td class="text-success">${jurosFormatado}</td>
+            <td>${formatCurrency(dado.totalInvestido)}</td>
+            <td class="text-warning fw-bold">${totalJurosFormatado}</td>
+            <td class="text-primary fw-bold">${formatCurrency(dado.saldo)}</td>
+        `;
+    });
+}
+
+function criarGrafico(dados) {
+    const ctx = document.getElementById('evolucaoChart').getContext('2d');
+    
+    // Destruir gráfico anterior se existir
+    if (chartInstance) {
+        chartInstance.destroy();
+    }
+    
+    const labels = dados.map(d => `Mês ${d.mes}`);
+    const dadosInvestido = dados.map(d => d.totalInvestido);
+    const dadosSaldo = dados.map(d => d.saldo);
+    
+    chartInstance = new Chart(ctx, {
+        type: 'line',
+        data: {
+            labels: labels,
+            datasets: [
+                {
+                    label: 'Total Investido',
+                    data: dadosInvestido,
+                    borderColor: '#007bff',
+                    backgroundColor: 'rgba(0, 123, 255, 0.1)',
+                    borderWidth: 2,
+                    fill: true,
+                    tension: 0.1
+                },
+                {
+                    label: 'Valor Acumulado',
+                    data: dadosSaldo,
+                    borderColor: '#28a745',
+                    backgroundColor: 'rgba(40, 167, 69, 0.1)',
+                    borderWidth: 2,
+                    fill: true,
+                    tension: 0.1
+                }
+            ]
+        },
+        options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            plugins: {
+                title: {
+                    display: true,
+                    text: 'Crescimento do Investimento ao Longo do Tempo'
+                },
+                legend: {
+                    display: true,
+                    position: 'top'
+                },
+                tooltip: {
+                    mode: 'index',
+                    intersect: false,
+                    callbacks: {
+                        label: function(context) {
+                            return context.dataset.label + ': ' + formatCurrency(context.parsed.y);
+                        }
+                    }
+                }
+            },
+            scales: {
+                x: {
+                    display: true,
+                    title: {
+                        display: true,
+                        text: 'Período'
+                    }
+                },
+                y: {
+                    display: true,
+                    title: {
+                        display: true,
+                        text: 'Valor (R$)'
+                    },
+                    ticks: {
+                        callback: function(value) {
+                            return formatCurrency(value);
+                        }
+                    }
+                }
+            }
+        }
+    });
+}
+
+function resetForm() {
+    document.getElementById('simulatorForm').reset();
+    document.getElementById('resultados').style.display = 'none';
+    
+    // Destruir gráfico se existir
+    if (chartInstance) {
+        chartInstance.destroy();
+        chartInstance = null;
+    }
+    
+    showToast('Formulário limpo com sucesso!', 'info');
+}
+
+function formatCurrency(value) {
+    return new Intl.NumberFormat('pt-BR', {
+        style: 'currency',
+        currency: 'BRL'
+    }).format(value);
+}
+
+function formatPercent(value) {
+    return new Intl.NumberFormat('pt-BR', {
+        style: 'percent',
+        minimumFractionDigits: 2,
+        maximumFractionDigits: 2
+    }).format(value);
+}
+
+</script>
+{% endblock %}

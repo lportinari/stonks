@@ -256,20 +256,30 @@ class RankingService:
             
             return query.order_by(Stock.score_final.desc()).limit(limit).all()
     
-    def get_ranking_statistics(self) -> Dict:
+    def get_ranking_statistics(self, asset_class_filter: Optional[str] = None) -> Dict:
         """
         Obtém estatísticas do ranking atual
         
+        Args:
+            asset_class_filter: Filtro por classe de ativo (opcional)
+            
         Returns:
             Dict: Estatísticas do ranking
         """
         with SessionLocal() as db:
-            # Contar todas as ações com preço (não apenas com score)
-            total_stocks = db.query(Stock).filter(
+            # Base query para ações com preço
+            base_query = db.query(Stock).filter(
                 Stock.cotacao.isnot(None)
             ).filter(
                 Stock.cotacao > 0
-            ).count()
+            )
+            
+            # Aplicar filtro de classe se especificado
+            if asset_class_filter:
+                base_query = base_query.filter(Stock.asset_class == asset_class_filter)
+            
+            # Contar ações
+            total_stocks = base_query.count()
             
             if total_stocks == 0:
                 return {
@@ -277,19 +287,16 @@ class RankingService:
                     'avg_score': 0,
                     'median_score': 0,
                     'top_score': 0,
-                    'sectors': []
+                    'sectors': [],
+                    'asset_class': asset_class_filter
                 }
             
-            # Obter scores para estatísticas (apenas ações com score)
-            stocks_with_score = db.query(Stock).filter(Stock.score_final.isnot(None)).all()
+            # Obter scores para estatísticas
+            stocks_with_score = base_query.filter(Stock.score_final.isnot(None)).all()
             
             if not stocks_with_score:
                 # Se não há ações com score, retornar estatísticas básicas
-                all_stocks = db.query(Stock).filter(
-                    Stock.cotacao.isnot(None)
-                ).filter(
-                    Stock.cotacao > 0
-                ).all()
+                all_stocks = base_query.all()
                 
                 sectors = {}
                 for stock in all_stocks:
@@ -303,26 +310,24 @@ class RankingService:
                     'avg_score': 0,
                     'median_score': 0,
                     'top_score': 0,
-                    'sectors': sector_stats[:10]
+                    'sectors': sector_stats[:10],
+                    'asset_class': asset_class_filter
                 }
             
             scores = [stock.score_final for stock in stocks_with_score]
             
             # Estatísticas básicas
             stats = {
-                'total_stocks': total_stocks,  # Todas as ações com preço
+                'total_stocks': total_stocks,
                 'avg_score': sum(scores) / len(scores),
                 'median_score': sorted(scores)[len(scores) // 2],
                 'top_score': max(scores),
-                'bottom_score': min(scores)
+                'bottom_score': min(scores),
+                'asset_class': asset_class_filter
             }
             
-            # Estatísticas por setor (todas as ações com preço)
-            all_stocks = db.query(Stock).filter(
-                Stock.cotacao.isnot(None)
-            ).filter(
-                Stock.cotacao > 0
-            ).all()
+            # Estatísticas por setor
+            all_stocks = base_query.all()
             
             sectors = {}
             for stock in all_stocks:
@@ -343,6 +348,35 @@ class RankingService:
             # Ordenar por média de score
             sector_stats.sort(key=lambda x: x['avg_score'], reverse=True)
             stats['sectors'] = sector_stats[:10]  # Top 10 setores
+            
+            # Adicionar estatísticas específicas por classe
+            if asset_class_filter:
+                class_names = {
+                    'acao': 'Ações',
+                    'fii': 'Fundos Imobiliários',
+                    'etf': 'ETFs',
+                    'bdr': 'BDRs'
+                }
+                stats['class_name'] = class_names.get(asset_class_filter, asset_class_filter.upper())
+                
+                # Estatísticas adicionais específicas da classe
+                if asset_class_filter == 'fii':
+                    # Média de DY para FIIs
+                    dy_stocks = base_query.filter(Stock.div_yield.isnot(None)).all()
+                    if dy_stocks:
+                        dy_values = [stock.div_yield for stock in dy_stocks]
+                        stats['avg_dy'] = sum(dy_values) / len(dy_values)
+                    else:
+                        stats['avg_dy'] = 0
+                        
+                elif asset_class_filter == 'acao':
+                    # Média de P/L para Ações
+                    pl_stocks = base_query.filter(Stock.pl.isnot(None)).filter(Stock.pl > 0).all()
+                    if pl_stocks:
+                        pl_values = [stock.pl for stock in pl_stocks]
+                        stats['avg_pl'] = sum(pl_values) / len(pl_values)
+                    else:
+                        stats['avg_pl'] = 0
             
             return stats
     

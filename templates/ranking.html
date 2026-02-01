@@ -1,24 +1,20 @@
 {% extends "base.html" %}
 
-{% block title %}Stonks - Ranking de Ações e Investimentos{% endblock %}
+{% block title %}Ranking de Ações - Stonks{% endblock %}
 
 {% block content %}
-<!-- Redirecionamento para a nova estrutura -->
-<script>
-    // Redirecionar para a nova home
-    window.location.href = '{{ url_for("main.index") }}';
-</script>
-
 <div class="row">
     <div class="col-12">
-        <div class="text-center py-5">
-            <div class="spinner-border text-primary" role="status">
-                <span class="visually-hidden">Redirecionando...</span>
+        <div class="d-flex justify-content-between align-items-center mb-4">
+            <h1><i class="fas fa-trophy text-warning"></i> Ranking de Ações Bovespa</h1>
+            <div>
+                <button class="btn btn-outline-primary btn-sm" onclick="location.reload()">
+                    <i class="fas fa-sync-alt"></i> Atualizar
+                </button>
+                <a href="{{ url_for('main.filter_stocks') }}" class="btn btn-outline-secondary btn-sm">
+                    <i class="fas fa-filter"></i> Filtros
+                </a>
             </div>
-            <h3 class="mt-3">Redirecionando para a nova página inicial...</h3>
-            <p class="text-muted">
-                <a href="{{ url_for('main.index') }}">Clique aqui se não for redirecionado automaticamente</a>
-            </p>
         </div>
     </div>
 </div>
@@ -425,8 +421,8 @@
                         Não há ações disponíveis no momento. Tente atualizar os dados.
                         {% endif %}
                     </p>
-                    <a href="{{ url_for('main.index') }}" class="btn btn-primary">
-                        <i class="fas fa-home"></i> Voltar ao Ranking
+                    <a href="{{ url_for('main.ranking') }}" class="btn btn-primary">
+                        <i class="fas fa-trophy"></i> Voltar ao Ranking
                     </a>
                 </div>
                 {% endif %}
@@ -440,7 +436,7 @@
                         <!-- Primeira página -->
                         {% if page > 1 %}
                         <li class="page-item">
-                            <a class="page-link" href="{{ url_for('main.index', page=1, sector=current_sector, asset_class=current_asset_class, search=current_search, per_page=per_page) }}">
+                            <a class="page-link" href="{{ url_for('main.ranking', page=1, sector=current_sector, asset_class=current_asset_class, search=current_search, per_page=per_page) }}">
                                 <i class="fas fa-angle-double-left"></i>
                             </a>
                         </li>
@@ -453,7 +449,7 @@
                         <!-- Página anterior -->
                         {% if page > 1 %}
                         <li class="page-item">
-                            <a class="page-link" href="{{ url_for('main.index', page=page-1, sector=current_sector, asset_class=current_asset_class, search=current_search, per_page=per_page) }}">
+                            <a class="page-link" href="{{ url_for('main.ranking', page=page-1, sector=current_sector, asset_class=current_asset_class, search=current_search, per_page=per_page) }}">
                                 <i class="fas fa-angle-left"></i>
                             </a>
                         </li>
@@ -481,7 +477,7 @@
                         </li>
                         {% else %}
                         <li class="page-item">
-                            <a class="page-link" href="{{ url_for('main.index', page=p, sector=current_sector, asset_class=current_asset_class, search=current_search, per_page=per_page) }}">{{ p }}</a>
+                            <a class="page-link" href="{{ url_for('main.ranking', page=p, sector=current_sector, asset_class=current_asset_class, search=current_search, per_page=per_page) }}">{{ p }}</a>
                         </li>
                         {% endif %}
                         {% endfor %}
@@ -495,7 +491,7 @@
                         <!-- Próxima página -->
                         {% if page < total_pages %}
                         <li class="page-item">
-                            <a class="page-link" href="{{ url_for('main.index', page=page+1, sector=current_sector, asset_class=current_asset_class, search=current_search, per_page=per_page) }}">
+                            <a class="page-link" href="{{ url_for('main.ranking', page=page+1, sector=current_sector, asset_class=current_asset_class, search=current_search, per_page=per_page) }}">
                                 <i class="fas fa-angle-right"></i>
                             </a>
                         </li>
@@ -508,7 +504,7 @@
                         <!-- Última página -->
                         {% if page < total_pages %}
                         <li class="page-item">
-                            <a class="page-link" href="{{ url_for('main.index', page=total_pages, sector=current_sector, asset_class=current_asset_class, search=current_search, per_page=per_page) }}">
+                            <a class="page-link" href="{{ url_for('main.ranking', page=total_pages, sector=current_sector, asset_class=current_asset_class, search=current_search, per_page=per_page) }}">
                                 <i class="fas fa-angle-double-right"></i>
                             </a>
                         </li>
@@ -745,17 +741,6 @@ function sortTable(table, columnIndex) {
     
     // Reorganizar linhas
     rows.forEach(row => tbody.appendChild(row));
-}
-
-// Auto-refresh opcional
-function toggleAutoRefresh() {
-    if (autoRefreshInterval) {
-        stopAutoRefresh();
-        showToast('Auto-refresh desativado', 'info');
-    } else {
-        startAutoRefresh();
-        showToast('Auto-refresh ativado (5 minutos)', 'success');
-    }
 }
 
 // Mudar itens por página

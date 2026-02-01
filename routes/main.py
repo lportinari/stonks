@@ -18,7 +18,21 @@ calculator = IndicatorCalculator()
 
 @main_bp.route('/')
 def index():
-    """Página principal com o ranking de ações"""
+    """Página principal/home do sistema"""
+    try:
+        # Obter estatísticas gerais para exibir na home
+        stats = ranking_service.get_ranking_statistics()
+        
+        return render_template('home.html', stats=stats)
+    
+    except Exception as e:
+        logger.error(f"Erro na página principal: {e}")
+        flash('Erro ao carregar dados. Tente novamente mais tarde.', 'error')
+        return render_template('home.html', stats={})
+
+@main_bp.route('/ranking')
+def ranking():
+    """Página de ranking de ações"""
     try:
         # Obter parâmetros de filtro
         page = request.args.get('page', 1, type=int)
@@ -26,9 +40,6 @@ def index():
         sector_filter = request.args.get('sector')
         asset_class_filter = request.args.get('asset_class')
         search_filter = request.args.get('search')
-        
-        # Desabilitar cache temporariamente para garantir paginação funcionando
-        # TODO: Implementar cache inteligente que respeita paginação
         
         # Obter dados do serviço com paginação real e todos os filtros
         stocks_data = ranking_service.get_current_ranking(
@@ -42,10 +53,10 @@ def index():
         # Obter setores disponíveis
         sectors = ranking_service.get_available_sectors()
         
-        # Obter estatísticas
-        stats = ranking_service.get_ranking_statistics()
+        # Obter estatísticas (com filtro de classe se aplicado)
+        stats = ranking_service.get_ranking_statistics(asset_class_filter=asset_class_filter)
         
-        return render_template('index.html', 
+        return render_template('ranking.html', 
                              stocks=stocks_data,
                              sectors=sectors,
                              current_sector=sector_filter,
@@ -56,9 +67,79 @@ def index():
                              per_page=per_page)
     
     except Exception as e:
-        logger.error(f"Erro na página principal: {e}")
+        logger.error(f"Erro na página de ranking: {e}")
         flash('Erro ao carregar dados. Tente novamente mais tarde.', 'error')
-        return render_template('index.html', stocks=[], sectors=[], stats={})
+        return render_template('ranking.html', stocks=[], sectors=[], stats={})
+
+@main_bp.route('/simulador')
+def simulador():
+    """Página do simulador de juros compostos"""
+    return render_template('simulador.html')
+
+@main_bp.route('/simulador/calcular', methods=['POST'])
+def calcular_simulador():
+    """API para cálculo do simulador de juros compostos"""
+    try:
+        data = request.get_json()
+        
+        # Validar dados de entrada
+        required_fields = ['aporte_inicial', 'aporte_mensal', 'taxa_juros', 'periodo']
+        for field in required_fields:
+            if field not in data:
+                return jsonify({'error': f'Campo {field} é obrigatório'}), 400
+        
+        aporte_inicial = float(data['aporte_inicial'])
+        aporte_mensal = float(data['aporte_mensal'])
+        taxa_juros = float(data['taxa_juros']) / 100  # Converter percentual para decimal
+        periodo = int(data['periodo'])
+        
+        # Validar valores
+        if aporte_inicial < 0 or aporte_mensal < 0 or taxa_juros < 0 or periodo <= 0:
+            return jsonify({'error': 'Valores devem ser positivos e período maior que zero'}), 400
+        
+        # Calcular evolução
+        resultados = []
+        saldo = aporte_inicial
+        total_investido = aporte_inicial
+        
+        for mes in range(1, periodo + 1):
+            # Calcular juros do mês
+            juros_mes = saldo * taxa_juros
+            
+            # Adicionar aporte mensal (exceto no primeiro mês)
+            if mes > 1:
+                saldo += aporte_mensal
+                total_investido += aporte_mensal
+            
+            # Adicionar juros
+            saldo += juros_mes
+            
+            # Salvar dados do mês
+            resultados.append({
+                'mes': mes,
+                'juros': juros_mes,
+                'total_investido': aporte_inicial + (aporte_mensal * (mes - 1)),
+                'saldo': saldo
+            })
+        
+        # Calcular totais
+        ultimo_mes = resultados[-1]
+        total_juros = ultimo_mes['saldo'] - ultimo_mes['total_investido']
+        rentabilidade = (total_juros / ultimo_mes['total_investido']) * 100 if ultimo_mes['total_investido'] > 0 else 0
+        
+        return jsonify({
+            'resultados': resultados,
+            'resumo': {
+                'total_investido': ultimo_mes['total_investido'],
+                'total_juros': total_juros,
+                'valor_final': ultimo_mes['saldo'],
+                'rentabilidade': rentabilidade
+            }
+        })
+    
+    except Exception as e:
+        logger.error(f"Erro no cálculo do simulador: {e}")
+        return jsonify({'error': 'Erro ao processar cálculo'}), 500
 
 @main_bp.route('/stock/<ticker>')
 def stock_detail(ticker):
