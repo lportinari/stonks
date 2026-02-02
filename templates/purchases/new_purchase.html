@@ -1,0 +1,315 @@
+{% extends "base.html" %}
+
+{% block title %}Nova Compra - Stonks{% endblock %}
+
+{% block content %}
+<div class="row justify-content-center">
+    <div class="col-md-8">
+        <div class="card shadow">
+            <div class="card-header bg-success text-white">
+                <h4><i class="fas fa-shopping-cart"></i> Nova Compra de Ativo</h4>
+            </div>
+            <div class="card-body">
+                <form method="POST" id="purchaseForm" novalidate>
+                    <div class="row">
+                    <div class="col-md-6">
+                        <label for="ticker" class="form-label">Ticker <span class="text-danger">*</span></label>
+                        <div class="input-group">
+                            <span class="input-group-text"><i class="fas fa-tag"></i></span>
+                            <input type="text" class="form-control" id="ticker" name="ticker" 
+                                   value="{{ dados.ticker or '' }}" 
+                                   placeholder="Ex: PETR4" required>
+                        </div>
+                        <div class="form-text">Informe o ticker do ativo (ex: PETR4, VALE3)</div>
+                    </div>
+                                <div class="form-text">
+                                    Informe o ticker da ação (ex: PETR4, VALE3, ITUB4)
+                                </div>
+                                <div class="invalid-feedback">
+                                    Por favor, informe um ticker válido.
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <div class="col-md-6">
+                            <div class="mb-3">
+                                <label for="data_compra" class="form-label">
+                                    <i class="fas fa-calendar"></i> Data da Compra *
+                                </label>
+                                <div class="input-group">
+                                    <span class="input-group-text">
+                                        <i class="fas fa-calendar-day"></i>
+                                    </span>
+                                    <input type="date" class="form-control" id="data_compra" 
+                                           name="data_compra" 
+                                           value="{{ request.form.data_compra or today }}" required>
+                                </div>
+                                <div class="invalid-feedback">
+                                    Por favor, informe a data da compra.
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <div class="row">
+                        <div class="col-md-4">
+                            <div class="mb-3">
+                                <label for="quantidade" class="form-label">
+                                    <i class="fas fa-sort-numeric-up"></i> Quantidade *
+                                </label>
+                                <div class="input-group">
+                                    <input type="number" class="form-control" id="quantidade" 
+                                           name="quantidade" value="{{ request.form.quantidade or '' }}" 
+                                           min="1" step="1" required>
+                                    <span class="input-group-text">unidades</span>
+                                </div>
+                                <div class="invalid-feedback">
+                                    Por favor, informe uma quantidade válida.
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <div class="col-md-4">
+                            <div class="mb-3">
+                                <label for="preco_unitario" class="form-label">
+                                    <i class="fas fa-dollar-sign"></i> Preço Unitário *
+                                </label>
+                                <div class="input-group">
+                                    <span class="input-group-text">R$</span>
+                                    <input type="number" class="form-control" id="preco_unitario" 
+                                           name="preco_unitario" value="{{ request.form.preco_unitario or '' }}" 
+                                           min="0.01" step="0.01" required>
+                                </div>
+                                <div class="invalid-feedback">
+                                    Por favor, informe um preço válido.
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <div class="col-md-4">
+                            <div class="mb-3">
+                                <label for="taxas" class="form-label">
+                                    <i class="fas fa-receipt"></i> Taxas e Corretagem
+                                </label>
+                                <div class="input-group">
+                                    <span class="input-group-text">R$</span>
+                                    <input type="number" class="form-control" id="taxas" 
+                                           name="taxas" value="{{ request.form.taxas or '0.00' }}" 
+                                           min="0" step="0.01">
+                                </div>
+                                <div class="form-text">
+                                    Corretagem, emolumentos, impostos, etc.
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <!-- Resumo da Compra -->
+                    <div class="card bg-light mb-3">
+                        <div class="card-header">
+                            <h6><i class="fas fa-calculator"></i> Resumo da Compra</h6>
+                        </div>
+                        <div class="card-body">
+                            <div class="row">
+                                <div class="col-md-3">
+                                    <small class="text-muted">Subtotal</small>
+                                    <h5 id="subtotal">R$ 0,00</h5>
+                                </div>
+                                <div class="col-md-3">
+                                    <small class="text-muted">Taxas</small>
+                                    <h5 id="taxasDisplay">R$ 0,00</h5>
+                                </div>
+                                <div class="col-md-3">
+                                    <small class="text-muted">Total</small>
+                                    <h5 class="text-success" id="total">R$ 0,00</h5>
+                                </div>
+                                <div class="col-md-3">
+                                    <small class="text-muted">Preço Médio</small>
+                                    <h5 class="text-info" id="precoMedio">R$ 0,00</h5>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <!-- Informações do Ativo (preenchidas automaticamente) -->
+                    <div class="card border-info mb-3" id="infoAtivo" style="display: none;">
+                        <div class="card-header bg-info text-white">
+                            <h6><i class="fas fa-info-circle"></i> Informações do Ativo</h6>
+                        </div>
+                        <div class="card-body">
+                            <div class="row">
+                                <div class="col-md-6">
+                                    <strong>Nome:</strong> <span id="nomeAtivo">-</span>
+                                </div>
+                                <div class="col-md-6">
+                                    <strong>Setor:</strong> <span id="setorAtivo">-</span>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <div class="d-grid gap-2 d-md-flex justify-content-md-end">
+                        <a href="{{ url_for('purchases.index') }}" class="btn btn-secondary me-md-2">
+                            <i class="fas fa-arrow-left"></i> Cancelar
+                        </a>
+                        <button type="submit" class="btn btn-success" id="btnSalvar">
+                            <i class="fas fa-save"></i> Registrar Compra
+                        </button>
+                    </div>
+                </form>
+            </div>
+        </div>
+        
+        <!-- Card de Dicas -->
+        <div class="card mt-3 border-info">
+            <div class="card-body">
+                <h6 class="card-title"><i class="fas fa-lightbulb text-info"></i> Dicas Importantes</h6>
+                <ul class="card-text small text-muted mb-0">
+                    <li>Verifique o ticker corretamente antes de confirmar a compra</li>
+                    <li>Inclua todas as taxas (corretagem, emolumentos, impostos) para cálculo preciso</li>
+                    <li>O preço médio é calculado automaticamente incluindo as taxas</li>
+                    <li>Os dados do ativo são buscados automaticamente do sistema</li>
+                </ul>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Modal de Loading -->
+<div class="modal fade" id="loadingModal" tabindex="-1" data-bs-backdrop="static" data-bs-keyboard="false">
+    <div class="modal-dialog modal-sm">
+        <div class="modal-content">
+            <div class="modal-body text-center">
+                <div class="spinner-border text-primary mb-3" role="status">
+                    <span class="visually-hidden">Carregando...</span>
+                </div>
+                <h5 id="loadingTitle">Processando...</h5>
+                <p class="text-muted" id="loadingMessage">Por favor, aguarde.</p>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    const form = document.getElementById('purchaseForm');
+    const tickerInput = document.getElementById('ticker');
+    const quantidadeInput = document.getElementById('quantidade');
+    const precoInput = document.getElementById('preco_unitario');
+    const taxasInput = document.getElementById('taxas');
+    const btnBuscar = document.getElementById('btnBuscarAtivo');
+    const btnSalvar = document.getElementById('btnSalvar');
+    
+    let ativoData = null;
+    
+    // Calcular totais automaticamente
+    function calcularTotais() {
+        const quantidade = parseFloat(quantidadeInput.value) || 0;
+        const preco = parseFloat(precoInput.value) || 0;
+        const taxas = parseFloat(taxasInput.value) || 0;
+        
+        const subtotal = quantidade * preco;
+        const total = subtotal + taxas;
+        const precoMedio = quantidade > 0 ? total / quantidade : 0;
+        
+        document.getElementById('subtotal').textContent = formatCurrency(subtotal);
+        document.getElementById('taxasDisplay').textContent = formatCurrency(taxas);
+        document.getElementById('total').textContent = formatCurrency(total);
+        document.getElementById('precoMedio').textContent = formatCurrency(precoMedio);
+    }
+    
+    function formatCurrency(value) {
+        return 'R$ ' + value.toLocaleString('pt-BR', {minimumFractionDigits: 2, maximumFractionDigits: 2});
+    }
+    
+    // Adicionar event listeners para cálculo automático
+    quantidadeInput.addEventListener('input', calcularTotais);
+    precoInput.addEventListener('input', calcularTotais);
+    taxasInput.addEventListener('input', calcularTotais);
+    
+    // Função de busca desabilitada
+    function limparInfoAtivo() {
+        document.getElementById('infoAtivo').style.display = 'none';
+        ativoData = null;
+    }
+    
+    function showLoading(title, message) {
+        document.getElementById('loadingTitle').textContent = title;
+        document.getElementById('loadingMessage').textContent = message;
+        const modal = new bootstrap.Modal(document.getElementById('loadingModal'));
+        modal.show();
+    }
+    
+    function hideLoading() {
+        const modal = bootstrap.Modal.getInstance(document.getElementById('loadingModal'));
+        if (modal) {
+            modal.hide();
+        }
+    }
+    
+    function showMessage(type, message) {
+        const alertHtml = `
+            <div class="alert alert-${type} alert-dismissible fade show" role="alert">
+                ${message}
+                <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+            </div>
+        `;
+        
+        const alertDiv = document.createElement('div');
+        alertDiv.innerHTML = alertHtml;
+        form.parentNode.insertBefore(alertDiv.firstElementChild, form);
+        
+        // Auto-remover após 5 segundos
+        setTimeout(() => {
+            const alert = form.previousElementSibling;
+            if (alert && alert.classList.contains('alert')) {
+                alert.remove();
+            }
+        }, 5000);
+    }
+    
+    // Validação do formulário
+    form.addEventListener('submit', function(e) {
+        e.preventDefault();
+        
+        if (!form.checkValidity()) {
+            e.stopPropagation();
+            form.classList.add('was-validated');
+            return;
+        }
+        
+        const ticker = tickerInput.value.trim().toUpperCase();
+        
+        // Verificar se o ticker foi preenchido
+        if (!ticker) {
+            alert('Por favor, informe o ticker do ativo.');
+            tickerInput.focus();
+            return;
+        }
+        
+        showLoading('Registrando Compra', 'Salvando informações da compra...');
+        
+        btnSalvar.disabled = true;
+        btnSalvar.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Registrando...';
+        
+        // Enviar formulário
+        setTimeout(() => {
+            form.submit();
+        }, 1000);
+    });
+    
+    // Formatar ticker automaticamente
+    tickerInput.addEventListener('input', function() {
+        this.value = this.value.toUpperCase().replace(/[^A-Z0-9]/g, '');
+    });
+    
+    // Calcular totais iniciais
+    calcularTotais();
+    
+    // Auto-focus no ticker
+    tickerInput.focus();
+});
+</script>
+{% endblock %}

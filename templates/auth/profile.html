@@ -1,0 +1,386 @@
+{% extends "base.html" %}
+
+{% block title %}Meu Perfil - Stonks{% endblock %}
+
+{% block content %}
+<div class="row">
+    <div class="col-md-4">
+        <!-- Card de informações do usuário -->
+        <div class="card shadow mb-4">
+            <div class="card-header bg-primary text-white text-center">
+                <h5><i class="fas fa-user"></i> Meu Perfil</h5>
+            </div>
+            <div class="card-body text-center">
+                <div class="mb-3">
+                    <img src="https://ui-avatars.com/api/?name={{ current_user.nome }}&size=128&background=007bff&color=fff" 
+                         class="rounded-circle" alt="Avatar" style="width: 128px; height: 128px;">
+                </div>
+                <h5>{{ current_user.nome }}</h5>
+                <p class="text-muted">{{ current_user.email }}</p>
+                
+                <div class="mt-3">
+                    {% if current_user.email_verificado %}
+                    <span class="badge bg-success">
+                        <i class="fas fa-check-circle"></i> Email Verificado
+                    </span>
+                    {% else %}
+                    <span class="badge bg-warning">
+                        <i class="fas fa-exclamation-triangle"></i> Email Não Verificado
+                    </span>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+        
+        <!-- Card de estatísticas -->
+        <div class="card shadow">
+            <div class="card-header bg-info text-white">
+                <h6><i class="fas fa-chart-bar"></i> Minhas Estatísticas</h6>
+            </div>
+            <div class="card-body">
+                <div class="row text-center">
+                    <div class="col-6 mb-3">
+                        <h4 class="text-primary" id="totalCompras">-</h4>
+                        <small class="text-muted">Compras</small>
+                    </div>
+                    <div class="col-6 mb-3">
+                        <h4 class="text-success" id="totalAtivos">-</h4>
+                        <small class="text-muted">Ativos</small>
+                    </div>
+                    <div class="col-12">
+                        <small class="text-muted"></small>
+                            Membro desde: {{ current_user.data_cadastro[:10] if current_user.data_cadastro and current_user.data_cadastro != 'None' else 'N/A' }}
+                        </small>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <div class="col-md-8">
+        <!-- Tabs de configurações -->
+        <div class="card shadow">
+            <div class="card-header bg-dark text-white">
+                <ul class="nav nav-tabs card-header-tabs" id="profileTab" role="tablist">
+                    <li class="nav-item" role="presentation">
+                        <button class="nav-link active" id="dados-tab" data-bs-toggle="tab" data-bs-target="#dados" 
+                                type="button" role="tab">
+                            <i class="fas fa-user-edit"></i> Dados Pessoais
+                        </button>
+                    </li>
+                    <li class="nav-item" role="presentation">
+                        <button class="nav-link" id="senha-tab" data-bs-toggle="tab" data-bs-target="#senha" 
+                                type="button" role="tab">
+                            <i class="fas fa-key"></i> Alterar Senha
+                        </button>
+                    </li>
+                    <li class="nav-item" role="presentation">
+                        <button class="nav-link" id="portfolio-tab" data-bs-toggle="tab" data-bs-target="#portfolio" 
+                                type="button" role="tab">
+                            <i class="fas fa-chart-pie"></i> Resumo Portfolio
+                        </button>
+                    </li>
+                </ul>
+            </div>
+            
+            <div class="card-body">
+                <div class="tab-content" id="profileTabContent">
+                    <!-- Tab Dados Pessoais -->
+                    <div class="tab-pane fade show active" id="dados" role="tabpanel">
+                        <form method="POST" id="profileForm">
+                            <div class="mb-3">
+                                <label for="nome" class="form-label">Nome Completo</label>
+                                <div class="input-group">
+                                    <span class="input-group-text"><i class="fas fa-user"></i></span>
+                                    <input type="text" class="form-control" id="nome" name="nome" 
+                                           value="{{ current_user.nome }}" required>
+                                </div>
+                            </div>
+                            
+                            <div class="mb-3">
+                                <label for="email" class="form-label">Email</label>
+                                <div class="input-group">
+                                    <span class="input-group-text"><i class="fas fa-envelope"></i></span>
+                                    <input type="email" class="form-control" id="email" name="email" 
+                                           value="{{ current_user.email }}" readonly>
+                                    <span class="input-group-text">
+                                        {% if current_user.email_verificado %}
+                                        <i class="fas fa-check-circle text-success" title="Email verificado"></i>
+                                        {% else %}
+                                        <i class="fas fa-exclamation-triangle text-warning" title="Email não verificado"></i>
+                                        {% endif %}
+                                    </span>
+                                </div>
+                                <small class="form-text text-muted">
+                                    O email não pode ser alterado. Entre em contato com o suporte se necessário.
+                                </small>
+                            </div>
+                            
+                            <div class="mb-3">
+                                <label for="data_cadastro" class="form-label">Data de Cadastro</label>
+                                <div class="input-group">
+                                    <span class="input-group-text"><i class="fas fa-calendar"></i></span>
+                                    <input type="text" class="form-control" id="data_cadastro" 
+                                           value="{{ current_user.data_cadastro[:16] if current_user.data_cadastro and current_user.data_cadastro != 'None' else 'N/A' }}" 
+                                           readonly>
+                                </div>
+                            </div>
+                            
+                            <div class="mb-3">
+                                <label for="ultimo_login" class="form-label">Último Acesso</label>
+                                <div class="input-group">
+                                    <span class="input-group-text"><i class="fas fa-clock"></i></span>
+                                    <input type="text" class="form-control" id="ultimo_login" 
+                                           value="{{ current_user.ultimo_login[:16] if current_user.ultimo_login and current_user.ultimo_login != 'None' else 'Primeiro acesso' }}" 
+                                           readonly>
+                                </div>
+                            </div>
+                            
+                            <div class="d-grid gap-2">
+                                <button type="submit" class="btn btn-primary" id="btnSalvarDados">
+                                    <i class="fas fa-save"></i> Salvar Alterações
+                                </button>
+                            </div>
+                        </form>
+                    </div>
+                    
+                    <!-- Tab Alterar Senha -->
+                    <div class="tab-pane fade" id="senha" role="tabpanel">
+                        <form method="POST" action="{{ url_for('auth.change_password') }}" id="senhaForm">
+                            <div class="mb-3">
+                                <label for="senha_atual" class="form-label">Senha Atual</label>
+                                <div class="input-group">
+                                    <span class="input-group-text"><i class="fas fa-lock"></i></span>
+                                    <input type="password" class="form-control" id="senha_atual" 
+                                           name="senha_atual" required>
+                                </div>
+                            </div>
+                            
+                            <div class="mb-3">
+                                <label for="nova_senha" class="form-label">Nova Senha</label>
+                                <div class="input-group">
+                                    <span class="input-group-text"><i class="fas fa-lock"></i></span>
+                                    <input type="password" class="form-control" id="nova_senha" 
+                                           name="nova_senha" required minlength="6">
+                                    <button class="btn btn-outline-secondary" type="button" id="toggleSenha">
+                                        <i class="fas fa-eye"></i>
+                                    </button>
+                                </div>
+                                <div class="form-text">Mínimo 6 caracteres</div>
+                                <div class="progress mt-2" style="height: 4px;">
+                                    <div class="progress-bar" id="senhaStrength" role="progressbar"></div>
+                                </div>
+                            </div>
+                            
+                            <div class="mb-3">
+                                <label for="confirmar_nova_senha" class="form-label">Confirmar Nova Senha</label>
+                                <div class="input-group">
+                                    <span class="input-group-text"><i class="fas fa-lock"></i></span>
+                                    <input type="password" class="form-control" id="confirmar_nova_senha" 
+                                           name="confirmar_senha" required>
+                                    <div class="invalid-feedback">
+                                        As senhas não coincidem
+                                    </div>
+                                </div>
+                            </div>
+                            
+                            <div class="d-grid gap-2">
+                                <button type="submit" class="btn btn-warning" id="btnAlterarSenha">
+                                    <i class="fas fa-key"></i> Alterar Senha
+                                </button>
+                            </div>
+                        </form>
+                    </div>
+                    
+                    <!-- Tab Resumo Portfolio -->
+                    <div class="tab-pane fade" id="portfolio" role="tabpanel">
+                        <div class="text-center" id="portfolioLoading">
+                            <i class="fas fa-spinner fa-spin fa-2x text-muted"></i>
+                            <p class="text-muted mt-2">Carregando dados do portfolio...</p>
+                        </div>
+                        
+                        <div id="portfolioContent" style="display: none;">
+                            <!-- Conteúdo será carregado via AJAX -->
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    // Carregar estatísticas do usuário
+    carregarEstatisticas();
+    
+    // Tab Senha - Toggle e força
+    const novaSenhaInput = document.getElementById('nova_senha');
+    const confirmarNovaSenhaInput = document.getElementById('confirmar_nova_senha');
+    const toggleSenhaBtn = document.getElementById('toggleSenha');
+    
+    if (toggleSenhaBtn && novaSenhaInput) {
+        toggleSenhaBtn.addEventListener('click', function() {
+            const type = novaSenhaInput.type === 'password' ? 'text' : 'password';
+            novaSenhaInput.type = type;
+            confirmarNovaSenhaInput.type = type;
+            
+            const icon = this.querySelector('i');
+            icon.className = type === 'password' ? 'fas fa-eye' : 'fas fa-eye-slash';
+        });
+        
+        // Verificar força da senha
+        novaSenhaInput.addEventListener('input', function() {
+            const senha = this.value;
+            const strengthBar = document.getElementById('senhaStrength');
+            
+            let strength = 0;
+            if (senha.length >= 6) strength++;
+            if (senha.length >= 10) strength++;
+            if (/[a-z]/.test(senha)) strength++;
+            if (/[A-Z]/.test(senha)) strength++;
+            if (/[0-9]/.test(senha)) strength++;
+            if (/[^a-zA-Z0-9]/.test(senha)) strength++;
+            
+            strengthBar.className = 'progress-bar';
+            if (strength <= 2) {
+                strengthBar.style.width = '20%';
+                strengthBar.classList.add('bg-danger');
+            } else if (strength <= 4) {
+                strengthBar.style.width = '50%';
+                strengthBar.classList.add('bg-warning');
+            } else {
+                strengthBar.style.width = '100%';
+                strengthBar.classList.add('bg-success');
+            }
+        });
+        
+        // Verificar se senhas coincidem
+        function checkSenhas() {
+            const senha = novaSenhaInput.value;
+            const confirmar = confirmarNovaSenhaInput.value;
+            
+            if (confirmar && senha !== confirmar) {
+                confirmarNovaSenhaInput.classList.add('is-invalid');
+                return false;
+            } else {
+                confirmarNovaSenhaInput.classList.remove('is-invalid');
+                return true;
+            }
+        }
+        
+        confirmarNovaSenhaInput.addEventListener('input', checkSenhas);
+        novaSenhaInput.addEventListener('input', checkSenhas);
+        
+        // Validação do formulário de senha
+        const senhaForm = document.getElementById('senhaForm');
+        const btnAlterarSenha = document.getElementById('btnAlterarSenha');
+        
+        if (senhaForm) {
+            senhaForm.addEventListener('submit', function(e) {
+                if (!checkSenhas()) {
+                    e.preventDefault();
+                    return false;
+                }
+                
+                btnAlterarSenha.disabled = true;
+                btnAlterarSenha.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Alterando...';
+            });
+        }
+    }
+    
+    // Validação do formulário de perfil
+    const profileForm = document.getElementById('profileForm');
+    const btnSalvarDados = document.getElementById('btnSalvarDados');
+    
+    if (profileForm) {
+        profileForm.addEventListener('submit', function(e) {
+            btnSalvarDados.disabled = true;
+            btnSalvarDados.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Salvando...';
+        });
+    }
+    
+    // Carregar portfolio quando tab for clicada
+    document.getElementById('portfolio-tab').addEventListener('shown.bs.tab', function() {
+        carregarPortfolio();
+    });
+});
+
+function carregarEstatisticas() {
+    // Simular carregamento (em produção, faria requisição AJAX)
+    setTimeout(() => {
+        document.getElementById('totalCompras').textContent = '12';
+        document.getElementById('totalAtivos').textContent = '8';
+    }, 1000);
+}
+
+function carregarPortfolio() {
+    const loading = document.getElementById('portfolioLoading');
+    const content = document.getElementById('portfolioContent');
+    
+    loading.style.display = 'block';
+    content.style.display = 'none';
+    
+    // Simular carregamento (em produção, faria requisição AJAX)
+    setTimeout(() => {
+        content.innerHTML = `
+            <div class="row">
+                <div class="col-md-4 mb-3">
+                    <div class="card text-center">
+                        <div class="card-body">
+                            <h5 class="text-primary">R$ 15.234,50</h5>
+                            <small class="text-muted">Total Investido</small>
+                        </div>
+                    </div>
+                </div>
+                <div class="col-md-4 mb-3">
+                    <div class="card text-center">
+                        <div class="card-body">
+                            <h5 class="text-success">R$ 18.456,78</h5>
+                            <small class="text-muted">Valor Atual</small>
+                        </div>
+                    </div>
+                </div>
+                <div class="col-md-4 mb-3">
+                    <div class="card text-center">
+                        <div class="card-body">
+                            <h5 class="text-info">+21.2%</h5>
+                            <small class="text-muted">Rentabilidade</small>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            
+            <div class="mt-4">
+                <h6><i class="fas fa-chart-pie"></i> Distribuição por Setor</h6>
+                <canvas id="sectorChart" width="400" height="200"></canvas>
+            </div>
+            
+            <div class="mt-3 text-center">
+                <a href="{{ url_for('purchases.dashboard') }}" class="btn btn-primary">
+                    <i class="fas fa-chart-line"></i> Ver Dashboard Completo
+                </a>
+            </div>
+        `;
+        
+        loading.style.display = 'none';
+        content.style.display = 'block';
+        
+        // Criar gráfico simples (placeholder)
+        const canvas = document.getElementById('sectorChart');
+        if (canvas) {
+            const ctx = canvas.getContext('2d');
+            // Simular gráfico de pizza
+            ctx.fillStyle = '#007bff';
+            ctx.fillRect(50, 50, 100, 100);
+            ctx.fillStyle = '#28a745';
+            ctx.fillRect(150, 50, 80, 80);
+            ctx.fillStyle = '#ffc107';
+            ctx.fillRect(230, 50, 60, 60);
+        }
+    }, 1500);
+}
+</script>
+{% endblock %}

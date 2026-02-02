@@ -1,7 +1,8 @@
 from flask import Flask
 from config import Config
 from models import init_db
-from routes import main_bp, api_bp
+from routes import main_bp, auth_bp, purchases_bp, login_manager
+from routes.api import api_bp
 import logging
 import os
 
@@ -25,9 +26,14 @@ def create_app():
     with app.app_context():
         init_db()
     
+    # Configurar Flask-Login
+    login_manager.init_app(app)
+    
     # Registrar blueprints
     app.register_blueprint(main_bp)
     app.register_blueprint(api_bp)
+    app.register_blueprint(auth_bp)
+    app.register_blueprint(purchases_bp)
     
     return app
 

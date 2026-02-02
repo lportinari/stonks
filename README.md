@@ -110,65 +110,52 @@ stonks/
 
 ## 🚀 Instalação e Configuração
 
-### 1. Pré-requisitos
-- Python 3.8 ou superior
-- pip (gerenciador de pacotes Python)
+**📋 Guia Completo**: Para uma configuração detalhada em nova máquina, incluindo solução de problemas comuns, consulte o **[Guia de Configuração](docs/SETUP_GUIDE.md)**.
 
-### 2. Clonar o projeto
+### ⚡ Setup Rápido
+
+1. **Pré-requisitos**: Python 3.8+ e pip
+
+2. **Clonar e configurar**:
 ```bash
-git clone <repository-url>
+git clone https://github.com/lportinari/stonks.git
 cd stonks
-```
-
-### 3. Criar ambiente virtual
-```bash
 python -m venv venv
-
-# Windows
-venv\Scripts\activate
-
-# Linux/Mac
-source venv/bin/activate
+source venv/bin/activate  # Linux/Mac
+# ou
+venv\Scripts\activate     # Windows
 ```
 
-### 4. Instalar dependências
+3. **Instalar dependências**:
 ```bash
 pip install -r requirements.txt
 ```
 
-### 5. Configurar variáveis de ambiente
-
-**IMPORTANTE**: O projeto agora usa variáveis de ambiente para chaves de API!
-
-1. Copie o arquivo de exemplo:
+4. **Configurar ambiente**:
 ```bash
 cp .env.example .env
+# Edite .env com suas chaves de API (BrAPI e Alpha Vantage)
 ```
 
-2. Edite o arquivo `.env` com suas chaves:
-```env
-SECRET_KEY=stonks-secret-key-2024
-DATABASE_URL=sqlite:///database/stocks.db
-
-# Chaves de API (OBRIGATÓRIO)
-BRAPI_API_KEY=sua_chave_brapi_aqui
-ALPHAVANTAGE_API_KEY=sua_chave_alphavantage_aqui
+5. **Inicializar banco de dados** (PASSO CRÍTICO):
+```bash
+python scripts/init_database.py
 ```
 
-3. **Obtenha suas chaves**:
-   - **BrAPI**: https://brapi.dev/ (API brasileira - recomendada)
-   - **Alpha Vantage**: https://www.alphavantage.co/support/#api-key (fallback)
-
-**⚠️ Aviso**: Sem as chaves de API, algumas funcionalidades podem não funcionar corretamente.
-
-### 6. Executar a aplicação
+6. **Executar aplicação**:
 ```bash
 python run.py
 ```
 
-Acesse `http://localhost:5000` no navegador.
+Acesse `http://localhost:5000` 
+- Login: `admin@stonks.com`
+- Senha: `admin123`
 
-## 📡 Uso da API
+### ⚠️ Problema Comum: AttributeError: 'User' has no attribute 'query'
+
+Se encontrar este erro, **execute o passo 5 acima** para inicializar o banco de dados corretamente. Veja o [Guia de Configuração](docs/SETUP_GUIDE.md) para solução completa.
+
+## � Uso da API
 
 ### Endpoints Principais
 

@@ -1,0 +1,102 @@
+{% extends "base.html" %}
+
+{% block title %}Login - Stonks{% endblock %}
+
+{% block content %}
+<div class="row justify-content-center">
+    <div class="col-md-6 col-lg-4">
+        <div class="card shadow">
+            <div class="card-header bg-primary text-white text-center">
+                <h4><i class="fas fa-sign-in-alt"></i> Login</h4>
+            </div>
+            <div class="card-body">
+                <form method="POST">
+                    <div class="mb-3">
+                        <label for="email" class="form-label">Email</label>
+                        <div class="input-group">
+                            <span class="input-group-text"><i class="fas fa-envelope"></i></span>
+                            <input type="email" class="form-control" id="email" name="email" 
+                                   value="{{ request.form.email or '' }}" required>
+                        </div>
+                    </div>
+                    
+                    <div class="mb-3">
+                        <label for="senha" class="form-label">Senha</label>
+                        <div class="input-group">
+                            <span class="input-group-text"><i class="fas fa-lock"></i></span>
+                            <input type="password" class="form-control" id="senha" name="senha" required>
+                            <button class="btn btn-outline-secondary" type="button" id="toggleSenha">
+                                <i class="fas fa-eye"></i>
+                            </button>
+                        </div>
+                    </div>
+                    
+                    <div class="mb-3 form-check">
+                        <input type="checkbox" class="form-check-input" id="lembrar" name="lembrar">
+                        <label class="form-check-label" for="lembrar">
+                            Lembrar-me
+                        </label>
+                    </div>
+                    
+                    <div class="d-grid gap-2">
+                        <button type="submit" class="btn btn-primary">
+                            <i class="fas fa-sign-in-alt"></i> Entrar
+                        </button>
+                    </div>
+                </form>
+                
+                <hr>
+                
+                <div class="text-center">
+                    <p class="mb-2">
+                        <a href="{{ url_for('auth.reset_password_request') }}" class="text-decoration-none">
+                            <i class="fas fa-key"></i> Esqueci minha senha
+                        </a>
+                    </p>
+                    <p class="mb-0">
+                        Não tem uma conta? 
+                        <a href="{{ url_for('auth.register') }}" class="text-decoration-none">
+                            <strong>Cadastre-se</strong>
+                        </a>
+                    </p>
+                </div>
+            </div>
+        </div>
+        
+        <!-- Card de informações -->
+        <div class="card mt-3 border-info">
+            <div class="card-body text-center">
+                <h6 class="card-title"><i class="fas fa-info-circle text-info"></i> Novo no Stonks?</h6>
+                <p class="card-text small text-muted">
+                    Cadastre-se para acompanhar suas compras de ativos, 
+                    analisar seu portfolio e muito mais!
+                </p>
+                <a href="{{ url_for('auth.register') }}" class="btn btn-info btn-sm">
+                    Criar Conta Gratuita
+                </a>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    // Toggle senha
+    const toggleSenha = document.getElementById('toggleSenha');
+    const senhaInput = document.getElementById('senha');
+    
+    toggleSenha.addEventListener('click', function() {
+        const type = senhaInput.type === 'password' ? 'text' : 'password';
+        senhaInput.type = type;
+        
+        const icon = this.querySelector('i');
+        icon.className = type === 'password' ? 'fas fa-eye' : 'fas fa-eye-slash';
+    });
+    
+    // Auto-focus no email
+    document.getElementById('email').focus();
+});
+</script>
+{% endblock %}
