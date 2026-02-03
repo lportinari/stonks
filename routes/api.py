@@ -1,6 +1,7 @@
 from flask import Blueprint, jsonify, request
 from models.stock import Stock
-from models.database import get_db
+from models.database import SessionLocal
+from sqlalchemy import func
 
 api_bp = Blueprint('api', __name__, url_prefix='/api')
 
@@ -13,41 +14,25 @@ def search_stocks():
         return jsonify({'success': False, 'message': 'Ticker inválido'})
     
     try:
-        with get_db() as conn:
-            cursor = conn.cursor()
+        with SessionLocal() as db:
+            # Buscar ação no banco usando ORM
+            stock = db.query(Stock).filter(
+                func.upper(Stock.ticker) == ticker
+            ).order_by(Stock.data_atualizacao.desc()).first()
             
-            # Buscar ação no banco
-            cursor.execute('''
-                SELECT ticker, nome, setor, papel, 
-                       cotacao, pl, lpa, vpa, roe, roic, 
-                       dy, p_vp, p_ebit, ev_ebit, 
-                       marg_liquida, marg_ebit, ebitda, 
-                       div_liq, patrimonio_liquido, dl_patr_pl,
-                       score_classificacao, data_ultima_atualizacao
-                FROM stocks 
-                WHERE UPPER(ticker) = ?
-                ORDER BY data_ultima_atualizacao DESC
-                LIMIT 1
-            ''', (ticker,))
-            
-            result = cursor.fetchone()
-            
-            if result:
-                columns = [desc[0] for desc in cursor.description]
-                stock = dict(zip(columns, result))
-                
+            if stock:
                 # Formatar dados para resposta
                 stock_data = {
-                    'ticker': stock['ticker'],
-                    'nome': stock['nome'],
-                    'setor': stock['setor'],
-                    'papel': stock['papel'],
-                    'cotacao': float(stock['cotacao']) if stock['cotacao'] else None,
-                    'pl': float(stock['pl']) if stock['pl'] else None,
-                    'roic': float(stock['roic']) if stock['roic'] else None,
-                    'dy': float(stock['dy']) if stock['dy'] else None,
-                    'score_classificacao': stock['score_classificacao'],
-                    'data_ultima_atualizacao': stock['data_ultima_atualizacao']
+                    'ticker': stock.ticker,
+                    'nome': stock.empresa,
+                    'setor': stock.setor,
+                    'papel': stock.asset_class,
+                    'cotacao': float(stock.cotacao) if stock.cotacao else None,
+                    'pl': float(stock.pl) if stock.pl else None,
+                    'roic': float(stock.roic) if stock.roic else None,
+                    'dy': float(stock.div_yield) if stock.div_yield else None,
+                    'score_classificacao': float(stock.score_final) if stock.score_final else None,
+                    'data_ultima_atualizacao': stock.data_atualizacao.isoformat() if stock.data_atualizacao else None
                 }
                 
                 return jsonify({
@@ -75,24 +60,13 @@ def stock_suggestions():
         return jsonify({'suggestions': []})
     
     try:
-        with get_db() as conn:
-            cursor = conn.cursor()
-            
-            # Buscar sugestões (limitar a 10 resultados)
-            cursor.execute('''
-                SELECT DISTINCT ticker, nome
-                FROM stocks 
-                WHERE UPPER(ticker) LIKE ? OR UPPER(nome) LIKE ?
-                ORDER BY 
-                    CASE WHEN UPPER(ticker) = ? THEN 1
-                         WHEN UPPER(ticker) LIKE ? THEN 2
-                         ELSE 3
-                    END,
-                    ticker
-                LIMIT 10
-            ''', (f'%{query}%', f'%{query}%', query, f'{query}%'))
-            
-            results = cursor.fetchall()
+        with SessionLocal() as db:
+            # Buscar sugestões usando ORM
+            # Ordenação simplificada para compatibilidade PostgreSQL
+            stocks = db.query(Stock.ticker, Stock.empresa).filter(
+                (func.upper(Stock.ticker).like(f'%{query}%')) | 
+                (func.upper(Stock.empresa).like(f'%{query}%'))
+            ).order_by(Stock.ticker).limit(10).all()
             
             suggestions = [
                 {
@@ -100,7 +74,7 @@ def stock_suggestions():
                     'nome': row[1],
                     'display': f"{row[0]} - {row[1]}"
                 }
-                for row in results
+                for row in stocks
             ]
             
             return jsonify({'suggestions': suggestions})
@@ -114,34 +88,18 @@ def get_stock_details(ticker):
     ticker = ticker.upper().strip()
     
     try:
-        with get_db() as conn:
-            cursor = conn.cursor()
+        with SessionLocal() as db:
+            stock = db.query(Stock).filter(
+                func.upper(Stock.ticker) == ticker
+            ).order_by(Stock.data_atualizacao.desc()).first()
             
-            cursor.execute('''
-                SELECT * FROM stocks 
-                WHERE UPPER(ticker) = ?
-                ORDER BY data_ultima_atualizacao DESC
-                LIMIT 1
-            ''', (ticker,))
-            
-            result = cursor.fetchone()
-            
-            if result:
-                columns = [desc[0] for desc in cursor.description]
-                stock = dict(zip(columns, result))
-                
-                # Converter para tipos JSON serializáveis
-                for key, value in stock.items():
-                    if value is None:
-                        continue
-                    elif isinstance(value, (int, float)):
-                        stock[key] = float(value)
-                    else:
-                        stock[key] = str(value)
+            if stock:
+                # Converter para dicionário
+                stock_data = stock.to_dict()
                 
                 return jsonify({
                     'success': True,
-                    'stock': stock
+                    'stock': stock_data
                 })
             else:
                 return jsonify({
@@ -159,29 +117,23 @@ def get_stock_details(ticker):
 def market_summary():
     """API para resumo do mercado"""
     try:
-        with get_db() as conn:
-            cursor = conn.cursor()
-            
-            # Estatísticas gerais do mercado
-            cursor.execute('''
-                SELECT 
-                    COUNT(*) as total_ativos,
-                    COUNT(CASE WHEN cotacao IS NOT NULL THEN 1 END) as ativos_com_cotacao,
-                    AVG(CASE WHEN pl IS NOT NULL AND pl > 0 THEN pl END) as avg_pl,
-                    AVG(CASE WHEN dy IS NOT NULL AND dy > 0 THEN dy END) as avg_dy,
-                    AVG(CASE WHEN roic IS NOT NULL AND roic > 0 THEN roic END) as avg_roic
-                FROM stocks
-            ''')
-            
-            result = cursor.fetchone()
+        with SessionLocal() as db:
+            # Estatísticas gerais do mercado usando ORM
+            result = db.query(
+                func.count(Stock.id).label('total_ativos'),
+                func.count(Stock.cotacao).label('ativos_com_cotacao'),
+                func.avg(Stock.pl).label('avg_pl'),
+                func.avg(Stock.div_yield).label('avg_dy'),
+                func.avg(Stock.roic).label('avg_roic')
+            ).first()
             
             if result:
                 summary = {
-                    'total_ativos': result[0],
-                    'ativos_com_cotacao': result[1],
-                    'avg_pl': float(result[2]) if result[2] else None,
-                    'avg_dy': float(result[3]) if result[3] else None,
-                    'avg_roic': float(result[4]) if result[4] else None
+                    'total_ativos': result.total_ativos or 0,
+                    'ativos_com_cotacao': result.ativos_com_cotacao or 0,
+                    'avg_pl': float(result.avg_pl) if result.avg_pl else None,
+                    'avg_dy': float(result.avg_dy) if result.avg_dy else None,
+                    'avg_roic': float(result.avg_roic) if result.avg_roic else None
                 }
                 
                 return jsonify({

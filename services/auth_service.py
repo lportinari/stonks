@@ -121,43 +121,27 @@ class AuthService:
     def resetar_senha(self, token: str, nova_senha: str) -> Dict[str, Any]:
         """Reseta a senha usando o token"""
         try:
-            # Buscar usuário pelo token
-            import sqlite3
-            with sqlite3.connect('database/stocks.db') as conn:
-                conn.row_factory = sqlite3.Row
-                cursor = conn.cursor()
-                cursor.execute('SELECT * FROM users WHERE token_reset_senha = ?', (token,))
-                row = cursor.fetchone()
+            from models.database import SessionLocal
+            
+            # Buscar usuário pelo token e fazer todas as operações no mesmo contexto
+            with SessionLocal() as db:
+                usuario = db.query(User).filter(User.token_reset_senha == token).first()
                 
-                if not row:
+                if not usuario:
                     return {'success': False, 'message': 'Token inválido'}
+            
+                if not usuario.verificar_reset_token(token):
+                    return {'success': False, 'message': 'Token expirado ou inválido'}
                 
-                usuario = User(
-                    id=row['id'],
-                    nome=row['nome'],
-                    email=row['email'],
-                    senha_hash=row['senha_hash'],
-                    email_verificado=bool(row['email_verificado']),
-                    token_verificacao=row['token_verificacao'],
-                    token_reset_senha=row['token_reset_senha'],
-                    token_expiracao=row['token_expiracao'],
-                    data_cadastro=row['data_cadastro'],
-                    ultimo_login=row['ultimo_login'],
-                    ativo=bool(row['ativo'])
-                )
+                # Resetar senha
+                usuario.set_senha(nova_senha)
+                usuario.limpar_reset_token()
+                db.commit()
             
-            if not usuario.verificar_reset_token(token):
-                return {'success': False, 'message': 'Token expirado ou inválido'}
-            
-            # Resetar senha
-            usuario.set_senha(nova_senha)
-            usuario.limpar_reset_token()
-            update_user(usuario)
-            
-            return {
-                'success': True,
-                'message': 'Senha alterada com sucesso!'
-            }
+                return {
+                    'success': True,
+                    'message': 'Senha alterada com sucesso!'
+                }
             
         except Exception as e:
             logger.error(f"Erro ao resetar senha: {e}")
@@ -166,42 +150,26 @@ class AuthService:
     def verificar_email_token(self, token: str) -> Dict[str, Any]:
         """Verifica o email usando o token"""
         try:
-            # Buscar usuário pelo token
-            import sqlite3
-            with sqlite3.connect('database/stocks.db') as conn:
-                conn.row_factory = sqlite3.Row
-                cursor = conn.cursor()
-                cursor.execute('SELECT * FROM users WHERE token_verificacao = ?', (token,))
-                row = cursor.fetchone()
+            from models.database import SessionLocal
+            
+            # Buscar usuário pelo token e fazer todas as operações no mesmo contexto
+            with SessionLocal() as db:
+                usuario = db.query(User).filter(User.token_verificacao == token).first()
                 
-                if not row:
+                if not usuario:
                     return {'success': False, 'message': 'Token inválido'}
                 
-                usuario = User(
-                    id=row['id'],
-                    nome=row['nome'],
-                    email=row['email'],
-                    senha_hash=row['senha_hash'],
-                    email_verificado=bool(row['email_verificado']),
-                    token_verificacao=row['token_verificacao'],
-                    token_reset_senha=row['token_reset_senha'],
-                    token_expiracao=row['token_expiracao'],
-                    data_cadastro=row['data_cadastro'],
-                    ultimo_login=row['ultimo_login'],
-                    ativo=bool(row['ativo'])
-                )
+                if not usuario.verificar_verification_token(token):
+                    return {'success': False, 'message': 'Token expirado'}
+                
+                # Verificar email
+                usuario.verificar_email()
+                db.commit()
             
-            if not usuario.verificar_verification_token(token):
-                return {'success': False, 'message': 'Token expirado'}
-            
-            # Verificar email
-            usuario.verificar_email()
-            update_user(usuario)
-            
-            return {
-                'success': True,
-                'message': 'Email verificado com sucesso!'
-            }
+                return {
+                    'success': True,
+                    'message': 'Email verificado com sucesso!'
+                }
             
         except Exception as e:
             logger.error(f"Erro na verificação de email: {e}")
