@@ -3,173 +3,232 @@
 {% block title %}Nova Compra - Stonks{% endblock %}
 
 {% block content %}
-<div class="row justify-content-center">
-    <div class="col-md-8">
-        <div class="card shadow">
-            <div class="card-header bg-success text-white">
-                <h4><i class="fas fa-shopping-cart"></i> Nova Compra de Ativo</h4>
-            </div>
-            <div class="card-body">
-                <form method="POST" id="purchaseForm" novalidate>
-                    <div class="row">
-                    <div class="col-md-6">
-                        <label for="ticker" class="form-label">Ticker <span class="text-danger">*</span></label>
-                        <div class="input-group">
-                            <span class="input-group-text"><i class="fas fa-tag"></i></span>
-                            <input type="text" class="form-control" id="ticker" name="ticker" 
-                                   value="{{ dados.ticker or '' }}" 
-                                   placeholder="Ex: PETR4" required>
+<div class="container-fluid py-4">
+    <div class="row">
+        <!-- Coluna Principal - Formulário -->
+        <div class="col-lg-8">
+            <!-- Card Principal -->
+            <div class="card shadow-sm border-0 mb-4">
+                <div class="card-header bg-gradient-success text-white py-3">
+                    <div class="d-flex align-items-center justify-content-between">
+                        <div>
+                            <h4 class="mb-0"><i class="fas fa-shopping-cart me-2"></i>Nova Compra</h4>
+                            <small class="text-white-50">Registre uma nova aquisição de ativos</small>
                         </div>
-                        <div class="form-text">Informe o ticker do ativo (ex: PETR4, VALE3)</div>
+                        <i class="fas fa-plus-circle fa-2x text-white-50"></i>
                     </div>
-                                <div class="form-text">
-                                    Informe o ticker da ação (ex: PETR4, VALE3, ITUB4)
-                                </div>
-                                <div class="invalid-feedback">
-                                    Por favor, informe um ticker válido.
-                                </div>
-                            </div>
-                        </div>
-                        
-                        <div class="col-md-6">
-                            <div class="mb-3">
-                                <label for="data_compra" class="form-label">
-                                    <i class="fas fa-calendar"></i> Data da Compra *
-                                </label>
-                                <div class="input-group">
-                                    <span class="input-group-text">
-                                        <i class="fas fa-calendar-day"></i>
-                                    </span>
-                                    <input type="date" class="form-control" id="data_compra" 
-                                           name="data_compra" 
-                                           value="{{ request.form.data_compra or today }}" required>
-                                </div>
-                                <div class="invalid-feedback">
-                                    Por favor, informe a data da compra.
-                                </div>
-                            </div>
-                        </div>
-                    </div>
-                    
-                    <div class="row">
-                        <div class="col-md-4">
-                            <div class="mb-3">
-                                <label for="quantidade" class="form-label">
-                                    <i class="fas fa-sort-numeric-up"></i> Quantidade *
-                                </label>
-                                <div class="input-group">
-                                    <input type="number" class="form-control" id="quantidade" 
-                                           name="quantidade" value="{{ request.form.quantidade or '' }}" 
-                                           min="1" step="1" required>
-                                    <span class="input-group-text">unidades</span>
-                                </div>
-                                <div class="invalid-feedback">
-                                    Por favor, informe uma quantidade válida.
-                                </div>
-                            </div>
-                        </div>
-                        
-                        <div class="col-md-4">
-                            <div class="mb-3">
-                                <label for="preco_unitario" class="form-label">
-                                    <i class="fas fa-dollar-sign"></i> Preço Unitário *
-                                </label>
-                                <div class="input-group">
-                                    <span class="input-group-text">R$</span>
-                                    <input type="number" class="form-control" id="preco_unitario" 
-                                           name="preco_unitario" value="{{ request.form.preco_unitario or '' }}" 
-                                           min="0.01" step="0.01" required>
-                                </div>
-                                <div class="invalid-feedback">
-                                    Por favor, informe um preço válido.
-                                </div>
-                            </div>
-                        </div>
-                        
-                        <div class="col-md-4">
-                            <div class="mb-3">
-                                <label for="taxas" class="form-label">
-                                    <i class="fas fa-receipt"></i> Taxas e Corretagem
-                                </label>
-                                <div class="input-group">
-                                    <span class="input-group-text">R$</span>
-                                    <input type="number" class="form-control" id="taxas" 
-                                           name="taxas" value="{{ request.form.taxas or '0.00' }}" 
-                                           min="0" step="0.01">
-                                </div>
-                                <div class="form-text">
-                                    Corretagem, emolumentos, impostos, etc.
-                                </div>
-                            </div>
-                        </div>
-                    </div>
-                    
-                    <!-- Resumo da Compra -->
-                    <div class="card bg-light mb-3">
-                        <div class="card-header">
-                            <h6><i class="fas fa-calculator"></i> Resumo da Compra</h6>
-                        </div>
-                        <div class="card-body">
-                            <div class="row">
-                                <div class="col-md-3">
-                                    <small class="text-muted">Subtotal</small>
-                                    <h5 id="subtotal">R$ 0,00</h5>
-                                </div>
-                                <div class="col-md-3">
-                                    <small class="text-muted">Taxas</small>
-                                    <h5 id="taxasDisplay">R$ 0,00</h5>
-                                </div>
-                                <div class="col-md-3">
-                                    <small class="text-muted">Total</small>
-                                    <h5 class="text-success" id="total">R$ 0,00</h5>
-                                </div>
-                                <div class="col-md-3">
-                                    <small class="text-muted">Preço Médio</small>
-                                    <h5 class="text-info" id="precoMedio">R$ 0,00</h5>
-                                </div>
-                            </div>
-                        </div>
-                    </div>
-                    
-                    <!-- Informações do Ativo (preenchidas automaticamente) -->
-                    <div class="card border-info mb-3" id="infoAtivo" style="display: none;">
-                        <div class="card-header bg-info text-white">
-                            <h6><i class="fas fa-info-circle"></i> Informações do Ativo</h6>
-                        </div>
-                        <div class="card-body">
-                            <div class="row">
+                </div>
+                <div class="card-body p-4">
+                    <form method="POST" id="purchaseForm" novalidate class="needs-validation">
+                        <!-- Seção: Informações Básicas -->
+                        <div class="mb-4">
+                            <h6 class="text-success mb-3">
+                                <i class="fas fa-info-circle me-2"></i>Informações Básicas
+                            </h6>
+                            
+                            <div class="row g-3">
                                 <div class="col-md-6">
-                                    <strong>Nome:</strong> <span id="nomeAtivo">-</span>
+                                    <label for="ticker" class="form-label fw-semibold">
+                                        Ticker <span class="text-danger">*</span>
+                                    </label>
+                                    <div class="input-group input-group-lg">
+                                        <span class="input-group-text bg-light">
+                                            <i class="fas fa-tag text-success"></i>
+                                        </span>
+                                        <input type="text" class="form-control" id="ticker" name="ticker" 
+                                               value="{{ dados.ticker or '' }}" 
+                                               placeholder="Ex: PETR4" required
+                                               pattern="[A-Z0-9]+">
+                                    </div>
+                                    <div class="form-text text-muted">
+                                        Informe o código do ativo (ex: PETR4, VALE3)
+                                    </div>
                                 </div>
+                                
                                 <div class="col-md-6">
-                                    <strong>Setor:</strong> <span id="setorAtivo">-</span>
+                                    <label for="data_compra" class="form-label fw-semibold">
+                                        Data da Compra <span class="text-danger">*</span>
+                                    </label>
+                                    <div class="input-group input-group-lg">
+                                        <span class="input-group-text bg-light">
+                                            <i class="fas fa-calendar-alt text-success"></i>
+                                        </span>
+                                        <input type="date" class="form-control" id="data_compra" 
+                                               name="data_compra" 
+                                               value="{{ request.form.data_compra or today }}" required>
+                                    </div>
                                 </div>
                             </div>
                         </div>
-                    </div>
-                    
-                    <div class="d-grid gap-2 d-md-flex justify-content-md-end">
-                        <a href="{{ url_for('purchases.index') }}" class="btn btn-secondary me-md-2">
-                            <i class="fas fa-arrow-left"></i> Cancelar
-                        </a>
-                        <button type="submit" class="btn btn-success" id="btnSalvar">
-                            <i class="fas fa-save"></i> Registrar Compra
-                        </button>
-                    </div>
-                </form>
+
+                        <!-- Seção: Classificação -->
+                        <div class="mb-4">
+                            <h6 class="text-success mb-3">
+                                <i class="fas fa-layer-group me-2"></i>Classificação
+                            </h6>
+                            
+                            <div class="row g-3">
+                                <div class="col-md-6">
+                                    <label for="classe_ativo" class="form-label fw-semibold">
+                                        Classe do Ativo <span class="text-danger">*</span>
+                                    </label>
+                                    <div class="input-group input-group-lg">
+                                        <span class="input-group-text bg-light">
+                                            <i class="fas fa-folder-open text-success"></i>
+                                        </span>
+                                        <select class="form-select" id="classe_ativo" name="classe_ativo" required>
+                                            <option value="">Selecione a classe...</option>
+                                            <option value="acoes" {{ 'selected' if dados.get('classe_ativo') == 'acoes' else '' }}>
+                                                <i class="fas fa-chart-line me-2"></i>Ações
+                                            </option>
+                                            <option value="renda_fixa_pos" {{ 'selected' if dados.get('classe_ativo') == 'renda_fixa_pos' else '' }}>
+                                                Renda Fixa Pós
+                                            </option>
+                                            <option value="renda_fixa_dinamica" {{ 'selected' if dados.get('classe_ativo') == 'renda_fixa_dinamica' else '' }}>
+                                                Renda Fixa Dinâmica
+                                            </option>
+                                            <option value="fundos_imobiliarios" {{ 'selected' if dados.get('classe_ativo') == 'fundos_imobiliarios' else '' }}>
+                                                Fundos Imobiliários
+                                            </option>
+                                            <option value="internacional" {{ 'selected' if dados.get('classe_ativo') == 'internacional' else '' }}>
+                                                Internacional
+                                            </option>
+                                            <option value="fundos_multimercados" {{ 'selected' if dados.get('classe_ativo') == 'fundos_multimercados' else '' }}>
+                                                Fundos Multimercados
+                                            </option>
+                                            <option value="alternativos" {{ 'selected' if dados.get('classe_ativo') == 'alternativos' else '' }}>
+                                                Alternativos
+                                            </option>
+                                        </select>
+                                    </div>
+                                    <div class="form-text text-muted">
+                                        Selecione a categoria para melhor organização
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Seção: Detalhes da Transação -->
+                        <div class="mb-4">
+                            <h6 class="text-success mb-3">
+                                <i class="fas fa-exchange-alt me-2"></i>Detalhes da Transação
+                            </h6>
+                            
+                            <div class="row g-3">
+                                <div class="col-md-4">
+                                    <label for="quantidade" class="form-label fw-semibold">
+                                        Quantidade <span class="text-danger">*</span>
+                                    </label>
+                                    <div class="input-group input-group-lg">
+                                        <input type="number" class="form-control text-end" id="quantidade" 
+                                               name="quantidade" value="{{ request.form.quantidade or '' }}" 
+                                               min="1" step="1" required>
+                                        <span class="input-group-text bg-light">unidades</span>
+                                    </div>
+                                </div>
+                                
+                                <div class="col-md-4">
+                                    <label for="preco_unitario" class="form-label fw-semibold">
+                                        Preço Unitário <span class="text-danger">*</span>
+                                    </label>
+                                    <div class="input-group input-group-lg">
+                                        <span class="input-group-text bg-light">R$</span>
+                                        <input type="number" class="form-control text-end" id="preco_unitario" 
+                                               name="preco_unitario" value="{{ request.form.preco_unitario or '' }}" 
+                                               min="0.01" step="0.01" required>
+                                    </div>
+                                </div>
+                                
+                                <div class="col-md-4">
+                                    <label for="taxas" class="form-label fw-semibold">
+                                        Taxas e Custos
+                                    </label>
+                                    <div class="input-group input-group-lg">
+                                        <span class="input-group-text bg-light">R$</span>
+                                        <input type="number" class="form-control text-end" id="taxas" 
+                                               name="taxas" value="{{ request.form.taxas or '0.00' }}" 
+                                               min="0" step="0.01">
+                                    </div>
+                                    <div class="form-text text-muted small">
+                                        Corretagem, emolumentos, etc.
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Botões de Ação -->
+                        <div class="row mt-4 pt-3 border-top">
+                            <div class="col-12 text-end">
+                                <a href="{{ url_for('purchases.index') }}" class="btn btn-outline-secondary btn-lg me-2">
+                                    <i class="fas fa-times me-2"></i>Cancelar
+                                </a>
+                                <button type="submit" class="btn btn-success btn-lg px-5" id="btnSalvar">
+                                    <i class="fas fa-save me-2"></i>Registrar Compra
+                                </button>
+                            </div>
+                        </div>
+                    </form>
+                </div>
             </div>
         </div>
-        
-        <!-- Card de Dicas -->
-        <div class="card mt-3 border-info">
-            <div class="card-body">
-                <h6 class="card-title"><i class="fas fa-lightbulb text-info"></i> Dicas Importantes</h6>
-                <ul class="card-text small text-muted mb-0">
-                    <li>Verifique o ticker corretamente antes de confirmar a compra</li>
-                    <li>Inclua todas as taxas (corretagem, emolumentos, impostos) para cálculo preciso</li>
-                    <li>O preço médio é calculado automaticamente incluindo as taxas</li>
-                    <li>Os dados do ativo são buscados automaticamente do sistema</li>
-                </ul>
+
+        <!-- Coluna Lateral - Resumo e Informações -->
+        <div class="col-lg-4">
+            <!-- Card de Resumo -->
+            <div class="card shadow-sm border-0 mb-4">
+                <div class="card-header bg-success text-white py-3">
+                    <h6 class="mb-0"><i class="fas fa-calculator me-2"></i>Resumo da Compra</h6>
+                </div>
+                <div class="card-body p-4">
+                    <div class="d-flex justify-content-between align-items-center mb-3">
+                        <span class="text-muted">Subtotal</span>
+                        <h5 class="mb-0 text-primary" id="subtotal">R$ 0,00</h5>
+                    </div>
+                    <div class="d-flex justify-content-between align-items-center mb-3">
+                        <span class="text-muted">Taxas</span>
+                        <h5 class="mb-0 text-warning" id="taxasDisplay">R$ 0,00</h5>
+                    </div>
+                    <hr class="my-3">
+                    <div class="d-flex justify-content-between align-items-center mb-3">
+                        <span class="text-muted fw-semibold">Total</span>
+                        <h4 class="mb-0 text-success" id="total">R$ 0,00</h4>
+                    </div>
+                    <div class="d-flex justify-content-between align-items-center">
+                        <span class="text-muted">Preço Médio</span>
+                        <h5 class="mb-0 text-info" id="precoMedio">R$ 0,00</h5>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Card de Dicas -->
+            <div class="card shadow-sm border-0 bg-light">
+                <div class="card-body p-4">
+                    <h6 class="text-success mb-3">
+                        <i class="fas fa-lightbulb me-2"></i>Dicas Importantes
+                    </h6>
+                    <ul class="list-unstyled mb-0 small text-muted">
+                        <li class="mb-2">
+                            <i class="fas fa-check-circle text-success me-2"></i>
+                            Verifique o ticker corretamente antes de confirmar
+                        </li>
+                        <li class="mb-2">
+                            <i class="fas fa-check-circle text-success me-2"></i>
+                            Selecione a classe do ativo apropriada
+                        </li>
+                        <li class="mb-2">
+                            <i class="fas fa-check-circle text-success me-2"></i>
+                            Inclua todas as taxas para cálculo preciso
+                        </li>
+                        <li class="mb-2">
+                            <i class="fas fa-check-circle text-success me-2"></i>
+                            O preço médio é calculado automaticamente
+                        </li>
+                        <li>
+                            <i class="fas fa-check-circle text-success me-2"></i>
+                            Dados do ativo são buscados automaticamente
+                        </li>
+                    </ul>
+                </div>
             </div>
         </div>
     </div>
@@ -177,15 +236,13 @@
 
 <!-- Modal de Loading -->
 <div class="modal fade" id="loadingModal" tabindex="-1" data-bs-backdrop="static" data-bs-keyboard="false">
-    <div class="modal-dialog modal-sm">
-        <div class="modal-content">
-            <div class="modal-body text-center">
-                <div class="spinner-border text-primary mb-3" role="status">
-                    <span class="visually-hidden">Carregando...</span>
-                </div>
-                <h5 id="loadingTitle">Processando...</h5>
-                <p class="text-muted" id="loadingMessage">Por favor, aguarde.</p>
+    <div class="modal-dialog modal-sm modal-dialog-centered">
+        <div class="modal-content text-center p-4">
+            <div class="spinner-border text-success mb-3" role="status">
+                <span class="visually-hidden">Carregando...</span>
             </div>
+            <h5 class="mb-2" id="loadingTitle">Processando...</h5>
+            <p class="text-muted mb-0" id="loadingMessage">Por favor, aguarde.</p>
         </div>
     </div>
 </div>
@@ -199,10 +256,7 @@ document.addEventListener('DOMContentLoaded', function() {
     const quantidadeInput = document.getElementById('quantidade');
     const precoInput = document.getElementById('preco_unitario');
     const taxasInput = document.getElementById('taxas');
-    const btnBuscar = document.getElementById('btnBuscarAtivo');
     const btnSalvar = document.getElementById('btnSalvar');
-    
-    let ativoData = null;
     
     // Calcular totais automaticamente
     function calcularTotais() {
@@ -221,7 +275,10 @@ document.addEventListener('DOMContentLoaded', function() {
     }
     
     function formatCurrency(value) {
-        return 'R$ ' + value.toLocaleString('pt-BR', {minimumFractionDigits: 2, maximumFractionDigits: 2});
+        return 'R$ ' + value.toLocaleString('pt-BR', {
+            minimumFractionDigits: 2,
+            maximumFractionDigits: 2
+        });
     }
     
     // Adicionar event listeners para cálculo automático
@@ -229,12 +286,7 @@ document.addEventListener('DOMContentLoaded', function() {
     precoInput.addEventListener('input', calcularTotais);
     taxasInput.addEventListener('input', calcularTotais);
     
-    // Função de busca desabilitada
-    function limparInfoAtivo() {
-        document.getElementById('infoAtivo').style.display = 'none';
-        ativoData = null;
-    }
-    
+    // Funções do modal de loading
     function showLoading(title, message) {
         document.getElementById('loadingTitle').textContent = title;
         document.getElementById('loadingMessage').textContent = message;
@@ -249,28 +301,7 @@ document.addEventListener('DOMContentLoaded', function() {
         }
     }
     
-    function showMessage(type, message) {
-        const alertHtml = `
-            <div class="alert alert-${type} alert-dismissible fade show" role="alert">
-                ${message}
-                <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
-            </div>
-        `;
-        
-        const alertDiv = document.createElement('div');
-        alertDiv.innerHTML = alertHtml;
-        form.parentNode.insertBefore(alertDiv.firstElementChild, form);
-        
-        // Auto-remover após 5 segundos
-        setTimeout(() => {
-            const alert = form.previousElementSibling;
-            if (alert && alert.classList.contains('alert')) {
-                alert.remove();
-            }
-        }, 5000);
-    }
-    
-    // Validação do formulário
+    // Validação e envio do formulário
     form.addEventListener('submit', function(e) {
         e.preventDefault();
         
@@ -282,17 +313,16 @@ document.addEventListener('DOMContentLoaded', function() {
         
         const ticker = tickerInput.value.trim().toUpperCase();
         
-        // Verificar se o ticker foi preenchido
         if (!ticker) {
             alert('Por favor, informe o ticker do ativo.');
             tickerInput.focus();
             return;
         }
         
-        showLoading('Registrando Compra', 'Salvando informações da compra...');
+        showLoading('Registrando Compra', 'Salvando informações...');
         
         btnSalvar.disabled = true;
-        btnSalvar.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Registrando...';
+        btnSalvar.innerHTML = '<i class="fas fa-spinner fa-spin me-2"></i>Registrando...';
         
         // Enviar formulário
         setTimeout(() => {

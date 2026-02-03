@@ -98,6 +98,7 @@ def new_purchase():
             'preco_unitario': request.form.get('preco_unitario', '').replace(',', '.'),
             'quantidade': request.form.get('quantidade', ''),
             'data_compra': request.form.get('data_compra', ''),
+            'classe_ativo': request.form.get('classe_ativo', ''),
             'taxa_corretagem': request.form.get('taxa_corretagem', '0').replace(',', '.'),
             'taxa_emolumentos': request.form.get('taxa_emolumentos', '0').replace(',', '.'),
             'outros_custos': request.form.get('outros_custos', '0').replace(',', '.'),
@@ -129,7 +130,8 @@ def new_purchase():
                 quantidade=dados['quantidade'],
                 preco_unitario=dados['preco_unitario'],
                 taxas=dados['taxa_corretagem'] + dados['taxa_emolumentos'] + dados['outros_custos'],
-                data_compra=datetime.strptime(dados['data_compra'], '%Y-%m-%d').date()
+                data_compra=datetime.strptime(dados['data_compra'], '%Y-%m-%d').date(),
+                classe_ativo=dados['classe_ativo'] if dados['classe_ativo'] else None
             )
             
             if resultado['success']:

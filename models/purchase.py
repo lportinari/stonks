@@ -7,7 +7,8 @@ class Purchase:
     def __init__(self, id=None, user_id=None, ticker=None, nome_ativo=None, 
                  quantidade=None, preco_unitario=None, taxas=0.0, custo_total=None,
                  preco_medio=None, data_compra=None, quantidade_vendida=0,
-                 preco_venda=None, data_venda=None, criado_em=None, atualizado_em=None):
+                 preco_venda=None, data_venda=None, classe_ativo=None,
+                 criado_em=None, atualizado_em=None):
         self.id = id
         self.user_id = user_id
         self.ticker = ticker
@@ -21,6 +22,7 @@ class Purchase:
         self.quantidade_vendida = quantidade_vendida
         self.preco_venda = preco_venda
         self.data_venda = data_venda
+        self.classe_ativo = classe_ativo
         self.criado_em = criado_em
         self.atualizado_em = atualizado_em
     
@@ -40,6 +42,7 @@ class Purchase:
             'quantidade_vendida': self.quantidade_vendida,
             'preco_venda': self.preco_venda,
             'data_venda': self.data_venda.isoformat() if self.data_venda else None,
+            'classe_ativo': self.classe_ativo,
             'criado_em': self.criado_em.isoformat() if self.criado_em else None,
             'atualizado_em': self.atualizado_em.isoformat() if self.atualizado_em else None
         }
@@ -47,7 +50,7 @@ class Purchase:
     def __repr__(self):
         return f'<Purchase {self.ticker} - {self.quantidade} unidades>'
 
-def create_purchase(user_id, ticker, nome_ativo, quantidade, preco_unitario, taxas=0.0, data_compra=None):
+def create_purchase(user_id, ticker, nome_ativo, quantidade, preco_unitario, taxas=0.0, data_compra=None, classe_ativo=None):
     """Cria uma nova compra"""
     if data_compra is None:
         data_compra = date.today()
@@ -63,10 +66,10 @@ def create_purchase(user_id, ticker, nome_ativo, quantidade, preco_unitario, tax
         cursor = conn.cursor()
         cursor.execute('''
             INSERT INTO purchases (user_id, ticker, nome_ativo, quantidade, preco_unitario, 
-                                 taxas, custo_total, preco_medio, data_compra)
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+                                 taxas, custo_total, preco_medio, data_compra, classe_ativo)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
         ''', (user_id, ticker, nome_ativo, quantidade, preco_unitario, 
-               taxas, custo_total, preco_medio, data_compra))
+               taxas, custo_total, preco_medio, data_compra, classe_ativo))
         conn.commit()
         return cursor.lastrowid
 
@@ -103,6 +106,7 @@ def get_purchases_by_user(user_id, limit=50, offset=0, order_by='data_compra', o
                 quantidade_vendida=row['quantidade_vendida'],
                 preco_venda=row['preco_venda'],
                 data_venda=datetime.strptime(row['data_venda'], '%Y-%m-%d').date() if row['data_venda'] else None,
+                classe_ativo=row['classe_ativo'] if 'classe_ativo' in row.keys() else None,
                 criado_em=datetime.fromisoformat(row['criado_em']) if row['criado_em'] else None,
                 atualizado_em=datetime.fromisoformat(row['atualizado_em']) if row['atualizado_em'] else None
             )
@@ -133,6 +137,7 @@ def get_purchase_by_id(purchase_id, user_id):
                 quantidade_vendida=row['quantidade_vendida'],
                 preco_venda=row['preco_venda'],
                 data_venda=datetime.strptime(row['data_venda'], '%Y-%m-%d').date() if row['data_venda'] else None,
+                classe_ativo=row.get('classe_ativo'),
                 criado_em=datetime.fromisoformat(row['criado_em']) if row['criado_em'] else None,
                 atualizado_em=datetime.fromisoformat(row['atualizado_em']) if row['atualizado_em'] else None
             )
@@ -251,6 +256,7 @@ def get_purchases_by_ticker(user_id, ticker):
                 quantidade_vendida=row['quantidade_vendida'],
                 preco_venda=row['preco_venda'],
                 data_venda=datetime.strptime(row['data_venda'], '%Y-%m-%d').date() if row['data_venda'] else None,
+                classe_ativo=row.get('classe_ativo'),
                 criado_em=datetime.fromisoformat(row['criado_em']) if row['criado_em'] else None,
                 atualizado_em=datetime.fromisoformat(row['atualizado_em']) if row['atualizado_em'] else None
             )

@@ -11,7 +11,7 @@ class PurchaseService:
     
     def criar_compra(self, user_id: int, ticker: str, nome_ativo: str, 
                     quantidade: int, preco_unitario: float, taxas: float = 0.0, 
-                    data_compra: date = None) -> Dict[str, Any]:
+                    data_compra: date = None, classe_ativo: str = None) -> Dict[str, Any]:
         """Cria uma nova compra de ativo"""
         try:
             # Validações básicas
@@ -30,6 +30,20 @@ class PurchaseService:
             if taxas < 0:
                 return {'success': False, 'message': 'Taxas não podem ser negativas'}
             
+            # Validação de classe de ativo
+            classes_validas = [
+                'acoes',
+                'renda_fixa_pos',
+                'renda_fixa_dinamica',
+                'fundos_imobiliarios',
+                'internacional',
+                'fundos_multimercados',
+                'alternativos'
+            ]
+            
+            if classe_ativo and classe_ativo not in classes_validas:
+                return {'success': False, 'message': 'Classe de ativo inválida'}
+            
             # Criar compra
             purchase_id = create_purchase(
                 user_id=user_id,
@@ -38,7 +52,8 @@ class PurchaseService:
                 quantidade=quantidade,
                 preco_unitario=preco_unitario,
                 taxas=taxas,
-                data_compra=data_compra
+                data_compra=data_compra,
+                classe_ativo=classe_ativo
             )
             
             if purchase_id:
