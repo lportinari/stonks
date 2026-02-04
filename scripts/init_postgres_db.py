@@ -28,23 +28,23 @@ def main():
     
     # Testar conexão
     if not test_connection():
-        print("\n❌ ERRO: Não foi possível conectar ao PostgreSQL!")
+        print("\n[ERRO] Nao foi possivel conectar ao PostgreSQL!")
         print("Verifique as credenciais no arquivo .env")
         return
     
-    print(f"\n✅ Conexão com PostgreSQL estabelecida com sucesso")
+    print(f"\n[OK] Conexao com PostgreSQL estabelecida com sucesso")
     
     # Criar tabelas
-    print("\n📋 Criando tabelas no banco de dados...")
+    print("\n[Criando] Tabelas no banco de dados...")
     try:
         init_db()
-        print("✅ Tabelas criadas com sucesso!")
+        print("[OK] Tabelas criadas com sucesso!")
     except Exception as e:
-        print(f"❌ Erro ao criar tabelas: {e}")
+        print(f"[ERRO] Erro ao criar tabelas: {e}")
         return
     
     # Criar usuário administrador padrão
-    print("\n👤 Criando usuário administrador padrão...")
+    print("\n[Criando] Usuario administrador padrao...")
     try:
         from models.database import SessionLocal
         with SessionLocal() as db:
@@ -52,7 +52,7 @@ def main():
             existing_admin = db.query(User).filter(User.email == 'admin@stonks.com').first()
             
             if existing_admin:
-                print("⚠️  Usuário administrador já existe")
+                print("[AVISO] Usuario administrador ja existe")
             else:
                 # Criar senha hash
                 senha_hash = bcrypt.hashpw('admin123'.encode('utf-8'), bcrypt.gensalt()).decode('utf-8')
@@ -69,17 +69,17 @@ def main():
                 db.add(admin_user)
                 db.commit()
                 
-                print("✅ Usuário administrador criado:")
+                print("[OK] Usuario administrador criado:")
                 print(f"   Email: admin@stonks.com")
                 print(f"   Senha: admin123")
-                print("\n⚠️  IMPORTANTE: Altere a senha após o primeiro login!")
+                print("\n[IMPORTANTE] Altere a senha apos o primeiro login!")
                 
     except Exception as e:
-        print(f"❌ Erro ao criar usuário administrador: {e}")
+        print(f"[ERRO] Erro ao criar usuario administrador: {e}")
         logger.error(f"Erro ao criar admin: {e}", exc_info=True)
     
     print("\n" + "=" * 50)
-    print("✅ Banco de dados inicializado com sucesso!")
+    print("[OK] Banco de dados inicializado com sucesso!")
     print("=" * 50)
 
 if __name__ == '__main__':
