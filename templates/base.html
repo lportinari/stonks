@@ -130,7 +130,6 @@
                             <i class="fas fa-trophy"></i> Ranking
                         </a>
                     </li>
-                    {% if current_user.is_authenticated %}
                     <li class="nav-item">
                         <a class="nav-link" href="{{ url_for('purchases.dashboard') }}">
                             <i class="fas fa-chart-pie"></i> Meu Portfolio
@@ -141,7 +140,6 @@
                             <i class="fas fa-shopping-cart"></i> Compras
                         </a>
                     </li>
-                    {% endif %}
                     <li class="nav-item">
                         <a class="nav-link" href="{{ url_for('main.simulador') }}">
                             <i class="fas fa-calculator"></i> Simulador
@@ -165,26 +163,6 @@
                 </ul>
                 
                 <ul class="navbar-nav">
-                    {% if current_user.is_authenticated %}
-                    <li class="nav-item dropdown">
-                        <a class="nav-link dropdown-toggle" href="#" id="navbarDropdown" role="button" data-bs-toggle="dropdown">
-                            <i class="fas fa-user"></i> {{ current_user.nome.split(' ')[0] }}
-                        </a>
-                        <ul class="dropdown-menu">
-                            <li>
-                                <a class="dropdown-item" href="{{ url_for('auth.profile') }}">
-                                    <i class="fas fa-user-circle"></i> Meu Perfil
-                                </a>
-                            </li>
-                            <li><hr class="dropdown-divider"></li>
-                            <li>
-                                <a class="dropdown-item" href="{{ url_for('auth.logout') }}">
-                                    <i class="fas fa-sign-out-alt"></i> Sair
-                                </a>
-                            </li>
-                        </ul>
-                    </li>
-                    {% else %}
                     <li class="nav-item">
                         <a class="nav-link" href="{{ url_for('auth.login') }}">
                             <i class="fas fa-sign-in-alt"></i> Login
@@ -195,7 +173,6 @@
                             <i class="fas fa-user-plus"></i> Cadastrar
                         </a>
                     </li>
-                    {% endif %}
                     <li class="nav-item">
                         <a class="nav-link" href="/api/ranking" target="_blank">
                             <i class="fas fa-code"></i> API

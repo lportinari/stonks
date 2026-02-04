@@ -1,0 +1,66 @@
+version: '3.8'
+
+services:
+  # PostgreSQL Database
+  stonks_db:
+    image: postgres:16-alpine
+    container_name: stonks_postgres
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:-stonks_user}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-stonks_password}
+      POSTGRES_DB: ${POSTGRES_DB:-stonks}
+    ports:
+      - "${POSTGRES_PORT:-5433}:5432"
+    volumes:
+      - stonks_postgres_data:/var/lib/postgresql/data
+    networks:
+      - modulo-auth_envision_forge_network
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-stonks_user}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    restart: unless-stopped
+
+  # Stonks Flask Application
+  stonks_app:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: stonks_app
+    ports:
+      - "${APP_PORT:-5000}:5000"
+    environment:
+      # Flask configuration
+      SECRET_KEY: ${SECRET_KEY:-stonks-secret-key-2024}
+      FLASK_ENV: ${FLASK_ENV:-production}
+      
+      # Database configuration (internal container communication)
+      POSTGRES_HOST: stonks_db
+      POSTGRES_PORT: 5432
+      POSTGRES_DB: ${POSTGRES_DB:-stonks}
+      POSTGRES_USER: ${POSTGRES_USER:-stonks_user}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-stonks_password}
+      
+      # API Keys
+      BRAPI_API_KEY: ${BRAPI_API_KEY:-}
+      ALPHAVANTAGE_API_KEY: ${ALPHAVANTAGE_API_KEY:-}
+    depends_on:
+      stonks_db:
+        condition: service_healthy
+    networks:
+      - modulo-auth_envision_forge_network
+    restart: unless-stopped
+    volumes:
+      # Mount logs directory for persistence
+      - ./logs:/app/logs
+      # Mount cache directory for logos
+      - ./database/cache:/app/database/cache
+
+volumes:
+  stonks_postgres_data:
+    driver: local
+
+networks:
+  modulo-auth_envision_forge_network:
+    external: true

@@ -81,3 +81,7 @@ class Config:
     
     # Pagination
     STOCKS_PER_PAGE = 50
+    
+    # Modulo-Auth Configuration
+    MODULO_AUTH_URL = os.environ.get('MODULO_AUTH_URL', 'http://backend:3000/api')
+    MODULO_AUTH_JWT_SECRET = os.environ.get('MODULO_AUTH_JWT_SECRET', 'your-jwt-secret-here')

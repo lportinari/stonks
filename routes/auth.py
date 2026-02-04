@@ -1,51 +1,44 @@
-from flask import Blueprint, render_template, request, redirect, url_for, flash, session, jsonify
-from flask_login import LoginManager, login_user, logout_user, login_required, current_user
-from services.auth_service import AuthService
+from flask import Blueprint, render_template, request, redirect, url_for, flash, session, jsonify, make_response
+from services.auth_service import auth_service
+from services.jwt_validator import get_token_from_request, jwt_required, get_current_user_id
 import logging
 
 logger = logging.getLogger(__name__)
 
 auth_bp = Blueprint('auth', __name__, url_prefix='/auth')
 
-# Configurar Flask-Login
-login_manager = LoginManager()
-login_manager.login_view = 'auth.login'
-login_manager.login_message = 'Por favor, faça login para acessar esta página.'
-login_manager.login_message_category = 'info'
-
-auth_service = AuthService()
-
-@login_manager.user_loader
-def load_user(user_id):
-    """Carrega usuário para o Flask-Login"""
-    return auth_service.get_usuario_by_id(int(user_id))
-
 @auth_bp.route('/login', methods=['GET', 'POST'])
 def login():
     """Página de login"""
-    if current_user.is_authenticated:
+    # Verificar se já está autenticado
+    token = get_token_from_request(request)
+    if token and auth_service.validate_token(token):
         return redirect(url_for('main.index'))
     
     if request.method == 'POST':
         email = request.form.get('email', '').strip()
         senha = request.form.get('senha', '')
-        lembrar = request.form.get('lembrar') == 'on'
         
         if not email or not senha:
             flash('Email e senha são obrigatórios', 'error')
             return render_template('auth/login.html')
         
-        # Autenticar usuário
-        resultado = auth_service.autenticar_usuario(email, senha, request.remote_addr)
+        # Autenticar usuário via modulo-auth
+        resultado = auth_service.login(email, senha, request.remote_addr)
         
         if resultado['success']:
-            user = auth_service.get_usuario_by_id(resultado['user']['id'])
-            login_user(user, remember=lembrar)
+            # Armazenar tokens na sessão
+            session['access_token'] = resultado['access_token']
+            session['refresh_token'] = resultado['refresh_token']
+            session['user'] = resultado['user']
             
-            next_page = request.args.get('next')
-            if next_page:
-                return redirect(next_page)
-            return redirect(url_for('main.index'))
+            # Também setar cookie para o frontend
+            response = make_response(redirect(request.args.get('next') or url_for('main.index')))
+            response.set_cookie('access_token', resultado['access_token'], httponly=True)
+            response.set_cookie('refresh_token', resultado['refresh_token'], httponly=True)
+            
+            flash('Login realizado com sucesso!', 'success')
+            return response
         else:
             flash(resultado['message'], 'error')
     
@@ -54,30 +47,37 @@ def login():
 @auth_bp.route('/register', methods=['GET', 'POST'])
 def register():
     """Página de cadastro"""
-    if current_user.is_authenticated:
+    # Verificar se já está autenticado
+    token = get_token_from_request(request)
+    if token and auth_service.validate_token(token):
         return redirect(url_for('main.index'))
     
     if request.method == 'POST':
-        nome = request.form.get('nome', '').strip()
+        nome_completo = request.form.get('nome', '').strip()
         email = request.form.get('email', '').strip()
         senha = request.form.get('senha', '')
         confirmar_senha = request.form.get('confirmar_senha', '')
         
         # Validações básicas
-        if not nome or not email or not senha:
+        if not nome_completo or not email or not senha:
             flash('Todos os campos são obrigatórios', 'error')
             return render_template('auth/register.html')
         
-        if len(senha) < 6:
-            flash('A senha deve ter pelo menos 6 caracteres', 'error')
+        # Separar nome e sobrenome
+        partes_nome = nome_completo.split(' ', 1)
+        first_name = partes_nome[0]
+        last_name = partes_nome[1] if len(partes_nome) > 1 else ''
+        
+        if len(senha) < 12:
+            flash('A senha deve ter pelo menos 12 caracteres', 'error')
             return render_template('auth/register.html')
         
         if senha != confirmar_senha:
             flash('As senhas não coincidem', 'error')
             return render_template('auth/register.html')
         
-        # Criar usuário
-        resultado = auth_service.criar_usuario(nome, email, senha)
+        # Criar usuário via modulo-auth
+        resultado = auth_service.register(email, senha, first_name, last_name)
         
         if resultado['success']:
             flash(resultado['message'], 'success')
@@ -88,130 +88,65 @@ def register():
     return render_template('auth/register.html')
 
 @auth_bp.route('/logout')
-@login_required
 def logout():
     """Logout do usuário"""
-    logout_user()
+    # Remover tokens da sessão
+    access_token = session.pop('access_token', None)
+    refresh_token = session.pop('refresh_token', None)
+    session.pop('user', None)
+    
+    # Fazer logout no modulo-auth
+    if access_token:
+        auth_service.logout(access_token)
+    
+    # Limpar cookies
+    response = make_response(redirect(url_for('main.index')))
+    response.delete_cookie('access_token')
+    response.delete_cookie('refresh_token')
+    
     flash('Você saiu da sua conta.', 'info')
-    return redirect(url_for('main.index'))
+    return response
 
-@auth_bp.route('/reset-password', methods=['GET', 'POST'])
-def reset_password_request():
-    """Solicitar reset de senha"""
-    if current_user.is_authenticated:
-        return redirect(url_for('main.index'))
-    
-    if request.method == 'POST':
-        email = request.form.get('email', '').strip()
-        
-        if not email:
-            flash('Email é obrigatório', 'error')
-            return render_template('auth/reset_password.html')
-        
-        resultado = auth_service.solicitar_reset_senha(email)
-        
-        if resultado['success']:
-            flash(resultado['message'], 'success')
-            return redirect(url_for('auth.login'))
-        else:
-            flash(resultado['message'], 'error')
-    
-    return render_template('auth/reset_password.html')
-
-@auth_bp.route('/reset-password/<token>', methods=['GET', 'POST'])
-def reset_password_token(token):
-    """Reset de senha com token"""
-    if current_user.is_authenticated:
-        return redirect(url_for('main.index'))
-    
-    if request.method == 'POST':
-        nova_senha = request.form.get('nova_senha', '')
-        confirmar_senha = request.form.get('confirmar_senha', '')
-        
-        if not nova_senha or not confirmar_senha:
-            flash('Todos os campos são obrigatórios', 'error')
-            return render_template('auth/reset_password_confirm.html', token=token)
-        
-        if len(nova_senha) < 6:
-            flash('A senha deve ter pelo menos 6 caracteres', 'error')
-            return render_template('auth/reset_password_confirm.html', token=token)
-        
-        if nova_senha != confirmar_senha:
-            flash('As senhas não coincidem', 'error')
-            return render_template('auth/reset_password_confirm.html', token=token)
-        
-        resultado = auth_service.resetar_senha(token, nova_senha)
-        
-        if resultado['success']:
-            flash(resultado['message'], 'success')
-            return redirect(url_for('auth.login'))
-        else:
-            flash(resultado['message'], 'error')
-            return redirect(url_for('auth.login'))
-    
-    return render_template('auth/reset_password_confirm.html', token=token)
-
-@auth_bp.route('/verify-email/<token>')
-def verify_email(token):
-    """Verificar email com token"""
-    resultado = auth_service.verificar_email_token(token)
-    
-    if resultado['success']:
-        flash(resultado['message'], 'success')
-    else:
-        flash(resultado['message'], 'error')
-    
-    return redirect(url_for('auth.login'))
+# Rotas de reset de senha e verificação de email não são mais necessárias
+# pois são gerenciadas pelo modulo-auth
+# Essas rotas podem ser removidas ou redirecionadas para documentação
 
 @auth_bp.route('/profile')
-@login_required
+@jwt_required
 def profile():
     """Perfil do usuário"""
-    return render_template('auth/profile.html')
+    user_id = request.jwt_user_id
+    token = request.jwt_token
+    
+    # Buscar dados atualizados do usuario
+    resultado = auth_service.get_user(user_id, token)
+    
+    user_data = resultado.get('user', {})
+    return render_template('auth/profile.html', user=user_data)
 
 @auth_bp.route('/profile', methods=['POST'])
-@login_required
+@jwt_required
 def update_profile():
     """Atualizar perfil do usuário"""
-    nome = request.form.get('nome', '').strip()
+    user_id = request.jwt_user_id
+    token = request.jwt_token
     
-    if not nome:
+    first_name = request.form.get('first_name', '').strip()
+    last_name = request.form.get('last_name', '').strip()
+    
+    if not first_name:
         flash('Nome é obrigatório', 'error')
         return redirect(url_for('auth.profile'))
     
-    resultado = auth_service.atualizar_usuario(current_user.id, {'nome': nome})
+    resultado = auth_service.update_user(user_id, token, {
+        'firstName': first_name,
+        'lastName': last_name
+    })
     
     if resultado['success']:
         flash(resultado['message'], 'success')
-    else:
-        flash(resultado['message'], 'error')
-    
-    return redirect(url_for('auth.profile'))
-
-@auth_bp.route('/change-password', methods=['POST'])
-@login_required
-def change_password():
-    """Alterar senha do usuário"""
-    senha_atual = request.form.get('senha_atual', '')
-    nova_senha = request.form.get('nova_senha', '')
-    confirmar_senha = request.form.get('confirmar_senha', '')
-    
-    if not senha_atual or not nova_senha or not confirmar_senha:
-        flash('Todos os campos são obrigatórios', 'error')
-        return redirect(url_for('auth.profile'))
-    
-    if len(nova_senha) < 6:
-        flash('A nova senha deve ter pelo menos 6 caracteres', 'error')
-        return redirect(url_for('auth.profile'))
-    
-    if nova_senha != confirmar_senha:
-        flash('As novas senhas não coincidem', 'error')
-        return redirect(url_for('auth.profile'))
-    
-    resultado = auth_service.alterar_senha(current_user.id, senha_atual, nova_senha)
-    
-    if resultado['success']:
-        flash(resultado['message'], 'success')
+        # Atualizar sessão
+        session['user'] = resultado.get('user', {})
     else:
         flash(resultado['message'], 'error')
     
@@ -229,11 +164,9 @@ def api_login():
     email = data['email'].strip()
     senha = data['senha']
     
-    resultado = auth_service.autenticar_usuario(email, senha, request.remote_addr)
+    resultado = auth_service.login(email, senha, request.remote_addr)
     
     if resultado['success']:
-        user = auth_service.get_usuario_by_id(resultado['user']['id'])
-        login_user(user)
         return jsonify(resultado)
     else:
         return jsonify(resultado), 401
@@ -250,14 +183,19 @@ def api_register():
     email = data.get('email', '').strip()
     senha = data.get('senha', '')
     
+    # Separar nome e sobrenome
+    partes_nome = nome.split(' ', 1)
+    first_name = partes_nome[0]
+    last_name = partes_nome[1] if len(partes_nome) > 1 else ''
+    
     # Validações
     if not nome or not email or not senha:
         return jsonify({'success': False, 'message': 'Todos os campos são obrigatórios'}), 400
     
-    if len(senha) < 6:
-        return jsonify({'success': False, 'message': 'A senha deve ter pelo menos 6 caracteres'}), 400
+    if len(senha) < 12:
+        return jsonify({'success': False, 'message': 'A senha deve ter pelo menos 12 caracteres'}), 400
     
-    resultado = auth_service.criar_usuario(nome, email, senha)
+    resultado = auth_service.register(email, senha, first_name, last_name)
     
     if resultado['success']:
         return jsonify(resultado)
@@ -266,17 +204,23 @@ def api_register():
 
 @auth_bp.route('/api/check-email', methods=['POST'])
 def check_email():
-    """Verifica se email já está cadastrado"""
+    """Verifica se email já está cadastrado (delegado ao modulo-auth)"""
+    # O modulo-auth verifica email durante o registro
+    return jsonify({'available': True, 'message': 'Email será verificado no registro'})
+
+@auth_bp.route('/api/refresh', methods=['POST'])
+def api_refresh():
+    """API para renovar token de acesso"""
     data = request.get_json()
-    email = data.get('email', '').strip() if data else ''
     
-    if not email:
-        return jsonify({'available': False, 'message': 'Email é obrigatório'})
+    if not data or 'refresh_token' not in data:
+        return jsonify({'success': False, 'message': 'Refresh token é obrigatório'}), 400
     
-    # Verificar se email existe
-    from models.user import user_exists
+    refresh_token = data['refresh_token']
     
-    if user_exists(email):
-        return jsonify({'available': False, 'message': 'Email já cadastrado'})
+    resultado = auth_service.refresh_token(refresh_token)
+    
+    if resultado['success']:
+        return jsonify(resultado)
     else:
-        return jsonify({'available': True, 'message': 'Email disponível'})
+        return jsonify(resultado), 401

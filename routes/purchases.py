@@ -1,7 +1,7 @@
 from flask import Blueprint, render_template, request, redirect, url_for, flash, jsonify
-from flask_login import login_required, current_user
 from services.purchase_service import PurchaseService
 from services.ranking_service import RankingService
+from services.jwt_validator import jwt_required, get_current_user_id
 import logging
 from datetime import datetime
 
@@ -13,7 +13,7 @@ purchase_service = PurchaseService()
 ranking_service = RankingService()
 
 @purchases_bp.route('/')
-@login_required
+@jwt_required
 def index():
     """Listagem de compras do usuário"""
     try:
@@ -43,8 +43,9 @@ def index():
                 order_by, order_dir = 'custo_total', 'DESC'
         
         # Buscar compras
+        user_id = get_current_user_id()
         resultado = purchase_service.listar_compras(
-            current_user.id, 
+            user_id,
             page=filtros['page'], 
             per_page=filtros['per_page'],
             order_by=order_by,
@@ -85,7 +86,7 @@ def index():
         return render_template('purchases/index.html', purchases=[], pagination=pagination, filtros=filtros)
 
 @purchases_bp.route('/new', methods=['GET', 'POST'])
-@login_required
+@jwt_required
 def new_purchase():
     """Formulário de nova compra"""
     if request.method == 'GET':
@@ -123,8 +124,9 @@ def new_purchase():
                 return render_template('purchases/new_purchase.html', dados=dados, edit_mode=False)
             
             # Criar compra
+            user_id = get_current_user_id()
             resultado = purchase_service.criar_compra(
-                user_id=current_user.id,
+                user_id=user_id,
                 ticker=dados['ticker'],
                 nome_ativo=dados['nome_ativo'],
                 quantidade=dados['quantidade'],
@@ -144,14 +146,13 @@ def new_purchase():
             flash('Valores numéricos inválidos', 'error')
         
         return render_template('purchases/new_purchase.html', dados=dados, edit_mode=False)
-    
-        return render_template('purchases/new_purchase.html', dados={}, edit_mode=False)
 
 @purchases_bp.route('/<int:purchase_id>')
-@login_required
+@jwt_required
 def view_purchase(purchase_id):
     """Visualizar detalhes de uma compra"""
-    resultado = purchase_service.obter_compra(purchase_id, current_user.id)
+    user_id = get_current_user_id()
+    resultado = purchase_service.obter_compra(purchase_id, user_id)
     
     if resultado['success']:
         return render_template('purchases/view.html', purchase=resultado['purchase'])
@@ -160,10 +161,11 @@ def view_purchase(purchase_id):
         return redirect(url_for('purchases.index'))
 
 @purchases_bp.route('/<int:purchase_id>/edit', methods=['GET', 'POST'])
-@login_required
+@jwt_required
 def edit_purchase(purchase_id):
     """Editar dados de uma compra"""
-    resultado = purchase_service.obter_compra(purchase_id, current_user.id)
+    user_id = get_current_user_id()
+    resultado = purchase_service.obter_compra(purchase_id, user_id)
     
     if not resultado['success']:
         flash(resultado['message'], 'error')
@@ -191,7 +193,8 @@ def edit_purchase(purchase_id):
             dados['outros_custos'] = float(dados['outros_custos'])
             
             # Atualizar compra
-            resultado = purchase_service.atualizar_compra(current_user.id, purchase_id, dados)
+            user_id = get_current_user_id()
+            resultado = purchase_service.atualizar_compra(user_id, purchase_id, dados)
             
             if resultado['success']:
                 flash(resultado['message'], 'success')
@@ -207,10 +210,11 @@ def edit_purchase(purchase_id):
     return render_template('purchases/new_purchase.html', dados=purchase, edit_mode=True, purchase_id=purchase_id)
 
 @purchases_bp.route('/<int:purchase_id>/sell', methods=['GET', 'POST'])
-@login_required
+@jwt_required
 def sell_purchase(purchase_id):
     """Registrar venda de ativos"""
-    resultado = purchase_service.obter_compra(purchase_id, current_user.id)
+    user_id = get_current_user_id()
+    resultado = purchase_service.obter_compra(purchase_id, user_id)
     
     if not resultado['success']:
         flash(resultado['message'], 'error')
@@ -250,7 +254,8 @@ def sell_purchase(purchase_id):
                 return render_template('purchases/sell.html', purchase=purchase, dados=dados)
             
             # Registrar venda
-            resultado = purchase_service.registrar_venda(current_user.id, purchase_id, dados)
+            user_id = get_current_user_id()
+            resultado = purchase_service.registrar_venda(user_id, purchase_id, dados)
             
             if resultado['success']:
                 flash(resultado['message'], 'success')
@@ -266,10 +271,11 @@ def sell_purchase(purchase_id):
     return render_template('purchases/sell.html', purchase=purchase, dados={})
 
 @purchases_bp.route('/<int:purchase_id>/delete', methods=['POST'])
-@login_required
+@jwt_required
 def delete_purchase(purchase_id):
     """Excluir uma compra"""
-    resultado = purchase_service.excluir_compra(purchase_id, current_user.id)
+    user_id = get_current_user_id()
+    resultado = purchase_service.excluir_compra(purchase_id, user_id)
     
     if resultado['success']:
         flash(resultado['message'], 'success')
@@ -279,12 +285,13 @@ def delete_purchase(purchase_id):
     return redirect(url_for('purchases.index'))
 
 @purchases_bp.route('/dashboard')
-@login_required
+@jwt_required
 def dashboard():
     """Dashboard do portfolio"""
     try:
         # Buscar dados do dashboard
-        resultado_dashboard = purchase_service.get_dashboard_data(current_user.id)
+        user_id = get_current_user_id()
+        resultado_dashboard = purchase_service.get_dashboard_data(user_id)
         
         if resultado_dashboard['success']:
             portfolio = resultado_dashboard['resumo']
@@ -318,7 +325,7 @@ def dashboard():
 
 # API endpoints
 @purchases_bp.route('/api/stock-info')
-@login_required
+@jwt_required
 def api_stock_info():
     """Busca informações de um ativo para autocomplete"""
     ticker = request.args.get('ticker', '').strip().upper()
@@ -348,7 +355,7 @@ def api_stock_info():
         return jsonify({'success': False, 'message': 'Erro ao buscar informações'})
 
 @purchases_bp.route('/api/search-stocks')
-@login_required
+@jwt_required
 def api_search_stocks():
     """Busca ações para autocomplete"""
     query = request.args.get('q', '').strip()

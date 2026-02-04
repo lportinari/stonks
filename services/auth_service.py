@@ -1,305 +1,299 @@
-import smtplib
 import logging
-import bcrypt
-from email.mime.text import MIMEText
-from email.mime.multipart import MIMEMultipart
-from datetime import datetime, timedelta
-from typing import Optional, Dict, Any
-from models.user import User, get_user_by_email, get_user_by_id, create_user, update_user, user_exists
-from flask import current_app
-import os
+from typing import Dict, Any, Optional
+from services.modulo_auth_client import auth_client
+from services.jwt_validator import jwt_validator
 
 logger = logging.getLogger(__name__)
 
 class AuthService:
-    """Serviço responsável pela autenticação e gestão de usuários"""
+    """Serviço responsável pela autenticação via modulo-auth"""
     
-    def __init__(self):
-        self.smtp_server = os.getenv('SMTP_SERVER', 'smtp.gmail.com')
-        self.smtp_port = int(os.getenv('SMTP_PORT', '587'))
-        self.smtp_user = os.getenv('SMTP_USER')
-        self.smtp_password = os.getenv('SMTP_PASSWORD')
-        self.from_email = os.getenv('FROM_EMAIL', self.smtp_user)
-    
-    def criar_usuario(self, nome: str, email: str, senha: str) -> Dict[str, Any]:
-        """Cria um novo usuário"""
+    def login(self, email: str, password: str, ip: str = None) -> Dict[str, Any]:
+        """
+        Realiza login através do modulo-auth
+        
+        Args:
+            email: Email do usuário
+            password: Senha do usuário
+            ip: IP do usuário (para logs)
+            
+        Returns:
+            Dict com tokens e dados do usuário
+        """
         try:
-            # Verificar se email já existe
-            if user_exists(email):
-                return {'success': False, 'message': 'Email já cadastrado'}
+            result = auth_client.login(email, password)
             
-            # Criar hash da senha primeiro
-            senha_hash = bcrypt.hashpw(senha.encode('utf-8'), bcrypt.gensalt()).decode('utf-8')
-            
-            # Salvar no banco
-            user_id = create_user(nome, email, senha_hash)
-            
-            # Criar objeto usuário com ID
-            usuario = User(
-                id=user_id,
-                nome=nome, 
-                email=email, 
-                senha_hash=senha_hash,
-                email_verificado=False
-            )
-            
-            # Enviar email de verificação
-            if self.smtp_user and self.smtp_password:
-                self._enviar_email_verificacao(usuario)
+            if result.get('success') and result.get('access_token'):
+                # Sucesso - retornar dados do módulo-auth
+                return {
+                    'success': True,
+                    'message': 'Login realizado com sucesso!',
+                    'access_token': result.get('access_token'),
+                    'refresh_token': result.get('refresh_token'),
+                    'user': result.get('user', {})
+                }
             else:
-                logger.warning("Configurações de email não encontradas. Pulando envio de verificação.")
-                # Auto-verificar em ambiente de desenvolvimento
-                if os.getenv('FLASK_ENV') == 'development':
-                    usuario.verificar_email()
-                    update_user(usuario)
-            
+                return {
+                    'success': False,
+                    'message': result.get('message', 'Erro ao fazer login')
+                }
+                
+        except Exception as e:
+            logger.error(f"Erro no login: {e}")
             return {
-                'success': True,
-                'message': 'Usuário criado com sucesso! Verifique seu email para ativar a conta.',
-                'user': usuario.to_dict()
+                'success': False,
+                'message': f'Erro no login: {str(e)}'
             }
+    
+    def register(self, email: str, password: str, first_name: str, last_name: str) -> Dict[str, Any]:
+        """
+        Cria um novo usuário através do modulo-auth
+        
+        Args:
+            email: Email do usuário
+            password: Senha do usuário
+            first_name: Primeiro nome
+            last_name: Sobrenome
             
+        Returns:
+            Dict com dados do usuário criado
+        """
+        try:
+            # Validar requisitos de senha (modulo-auth exige mínimo 12 caracteres)
+            if len(password) < 12:
+                return {
+                    'success': False,
+                    'message': 'A senha deve ter pelo menos 12 caracteres'
+                }
+            
+            result = auth_client.register(email, password, first_name, last_name)
+            
+            if result.get('success'):
+                return {
+                    'success': True,
+                    'message': 'Usuário criado com sucesso! Faça login para continuar.',
+                    'user': result.get('user', {})
+                }
+            else:
+                return {
+                    'success': False,
+                    'message': result.get('message', 'Erro ao criar usuário')
+                }
+                
         except Exception as e:
             logger.error(f"Erro ao criar usuário: {e}")
-            return {'success': False, 'message': f'Erro ao criar usuário: {str(e)}'}
+            return {
+                'success': False,
+                'message': f'Erro ao criar usuário: {str(e)}'
+            }
     
-    def autenticar_usuario(self, email: str, senha: str, ip: str = None) -> Dict[str, Any]:
-        """Autentica um usuário"""
+    def logout(self, access_token: str) -> Dict[str, Any]:
+        """
+        Faz logout através do modulo-auth
+        
+        Args:
+            access_token: Access token atual
+            
+        Returns:
+            Dict com resultado
+        """
         try:
-            usuario = get_user_by_email(email)
-            
-            if not usuario:
-                return {'success': False, 'message': 'Email ou senha incorretos'}
-            
-            if not usuario.ativo:
-                return {'success': False, 'message': 'Conta desativada'}
-            
-            if not usuario.verificar_senha(senha):
-                return {'success': False, 'message': 'Email ou senha incorretos'}
-            
-            # Atualizar último login
-            usuario.atualizar_ultimo_login(ip)
-            update_user(usuario)
-            
+            auth_client.logout(access_token)
             return {
                 'success': True,
-                'message': 'Login realizado com sucesso!',
-                'user': usuario.to_dict()
+                'message': 'Logout realizado com sucesso!'
             }
-            
         except Exception as e:
-            logger.error(f"Erro na autenticação: {e}")
-            return {'success': False, 'message': f'Erro na autenticação: {str(e)}'}
+            logger.error(f"Erro no logout: {e}")
+            return {
+                'success': True,  # Logout sempre considerado sucesso (mesmo se falhar)
+                'message': 'Logout realizado com sucesso!'
+            }
     
-    def solicitar_reset_senha(self, email: str) -> Dict[str, Any]:
-        """Solicita reset de senha"""
+    def logout_all(self, access_token: str) -> Dict[str, Any]:
+        """
+        Faz logout de todos os dispositivos através do modulo-auth
+        
+        Args:
+            access_token: Access token atual
+            
+        Returns:
+            Dict com resultado
+        """
         try:
-            usuario = get_user_by_email(email)
+            auth_client.logout_all(access_token)
+            return {
+                'success': True,
+                'message': 'Logout de todos os dispositivos realizado com sucesso!'
+            }
+        except Exception as e:
+            logger.error(f"Erro no logout-all: {e}")
+            return {
+                'success': True,
+                'message': 'Logout de todos os dispositivos realizado com sucesso!'
+            }
+    
+    def refresh_token(self, refresh_token: str) -> Dict[str, Any]:
+        """
+        Renova o access token através do modulo-auth
+        
+        Args:
+            refresh_token: Refresh token válido
             
-            if not usuario:
-                return {'success': False, 'message': 'Email não encontrado'}
+        Returns:
+            Dict com novo access token
+        """
+        try:
+            result = auth_client.refresh_token(refresh_token)
             
-            # Gerar token de reset
-            token = usuario.gerar_reset_token()
-            update_user(usuario)
-            
-            # Enviar email de reset
-            if self.smtp_user and self.smtp_password:
-                self._enviar_email_reset_senha(usuario, token)
+            if result.get('success'):
+                return {
+                    'success': True,
+                    'message': 'Token renovado com sucesso!',
+                    'access_token': result.get('access_token'),
+                    'refresh_token': result.get('refresh_token', refresh_token)
+                }
             else:
-                logger.warning("Configurações de email não encontradas. Pulando envio de email de reset.")
-            
+                return {
+                    'success': False,
+                    'message': result.get('message', 'Erro ao renovar token')
+                }
+                
+        except Exception as e:
+            logger.error(f"Erro ao renovar token: {e}")
             return {
-                'success': True,
-                'message': 'Email de reset de senha enviado! Verifique sua caixa de entrada.'
+                'success': False,
+                'message': f'Erro ao renovar token: {str(e)}'
             }
-            
-        except Exception as e:
-            logger.error(f"Erro ao solicitar reset de senha: {e}")
-            return {'success': False, 'message': f'Erro ao solicitar reset: {str(e)}'}
     
-    def resetar_senha(self, token: str, nova_senha: str) -> Dict[str, Any]:
-        """Reseta a senha usando o token"""
+    def get_user(self, user_id: str, access_token: str) -> Dict[str, Any]:
+        """
+        Busca dados de um usuário através do modulo-auth
+        
+        Args:
+            user_id: UUID do usuário
+            access_token: Access token válido
+            
+        Returns:
+            Dict com dados do usuário
+        """
         try:
-            from models.database import SessionLocal
+            result = auth_client.get_user(user_id, access_token)
             
-            # Buscar usuário pelo token e fazer todas as operações no mesmo contexto
-            with SessionLocal() as db:
-                usuario = db.query(User).filter(User.token_reset_senha == token).first()
-                
-                if not usuario:
-                    return {'success': False, 'message': 'Token inválido'}
-            
-                if not usuario.verificar_reset_token(token):
-                    return {'success': False, 'message': 'Token expirado ou inválido'}
-                
-                # Resetar senha
-                usuario.set_senha(nova_senha)
-                usuario.limpar_reset_token()
-                db.commit()
-            
+            if result.get('success'):
                 return {
                     'success': True,
-                    'message': 'Senha alterada com sucesso!'
+                    'user': result.get('user', {})
                 }
-            
-        except Exception as e:
-            logger.error(f"Erro ao resetar senha: {e}")
-            return {'success': False, 'message': f'Erro ao resetar senha: {str(e)}'}
-    
-    def verificar_email_token(self, token: str) -> Dict[str, Any]:
-        """Verifica o email usando o token"""
-        try:
-            from models.database import SessionLocal
-            
-            # Buscar usuário pelo token e fazer todas as operações no mesmo contexto
-            with SessionLocal() as db:
-                usuario = db.query(User).filter(User.token_verificacao == token).first()
-                
-                if not usuario:
-                    return {'success': False, 'message': 'Token inválido'}
-                
-                if not usuario.verificar_verification_token(token):
-                    return {'success': False, 'message': 'Token expirado'}
-                
-                # Verificar email
-                usuario.verificar_email()
-                db.commit()
-            
+            else:
                 return {
-                    'success': True,
-                    'message': 'Email verificado com sucesso!'
+                    'success': False,
+                    'message': result.get('message', 'Erro ao buscar usuário')
                 }
-            
-        except Exception as e:
-            logger.error(f"Erro na verificação de email: {e}")
-            return {'success': False, 'message': f'Erro na verificação: {str(e)}'}
-    
-    def get_usuario_by_id(self, user_id: int) -> Optional[User]:
-        """Busca usuário por ID"""
-        try:
-            return get_user_by_id(user_id)
+                
         except Exception as e:
             logger.error(f"Erro ao buscar usuário: {e}")
-            return None
-    
-    def atualizar_usuario(self, user_id: int, dados: Dict[str, Any]) -> Dict[str, Any]:
-        """Atualiza dados do usuário"""
-        try:
-            usuario = get_user_by_id(user_id)
-            if not usuario:
-                return {'success': False, 'message': 'Usuário não encontrado'}
-            
-            # Atualizar campos permitidos
-            campos_permitidos = ['nome']
-            for campo, valor in dados.items():
-                if campo in campos_permitidos and hasattr(usuario, campo):
-                    setattr(usuario, campo, valor)
-            
-            update_user(usuario)
-            
             return {
-                'success': True,
-                'message': 'Dados atualizados com sucesso!',
-                'user': usuario.to_dict()
+                'success': False,
+                'message': f'Erro ao buscar usuário: {str(e)}'
             }
+    
+    def update_user(self, user_id: str, access_token: str, data: Dict[str, Any]) -> Dict[str, Any]:
+        """
+        Atualiza dados de um usuário através do modulo-auth
+        
+        Args:
+            user_id: UUID do usuário
+            access_token: Access token válido
+            data: Dados a atualizar (ex: {'firstName': 'Novo Nome'})
             
+        Returns:
+            Dict com dados atualizados do usuário
+        """
+        try:
+            result = auth_client.update_user(user_id, access_token, data)
+            
+            if result.get('success'):
+                return {
+                    'success': True,
+                    'message': 'Dados atualizados com sucesso!',
+                    'user': result.get('user', {})
+                }
+            else:
+                return {
+                    'success': False,
+                    'message': result.get('message', 'Erro ao atualizar usuário')
+                }
+                
         except Exception as e:
             logger.error(f"Erro ao atualizar usuário: {e}")
-            return {'success': False, 'message': f'Erro ao atualizar: {str(e)}'}
-    
-    def alterar_senha(self, user_id: int, senha_atual: str, nova_senha: str) -> Dict[str, Any]:
-        """Altera a senha do usuário"""
-        try:
-            usuario = get_user_by_id(user_id)
-            if not usuario:
-                return {'success': False, 'message': 'Usuário não encontrado'}
-            
-            if not usuario.verificar_senha(senha_atual):
-                return {'success': False, 'message': 'Senha atual incorreta'}
-            
-            usuario.set_senha(nova_senha)
-            update_user(usuario)
-            
             return {
-                'success': True,
-                'message': 'Senha alterada com sucesso!'
+                'success': False,
+                'message': f'Erro ao atualizar usuário: {str(e)}'
             }
-            
-        except Exception as e:
-            logger.error(f"Erro ao alterar senha: {e}")
-            return {'success': False, 'message': f'Erro ao alterar senha: {str(e)}'}
     
-    def _enviar_email_verificacao(self, usuario: User):
-        """Envia email de verificação"""
+    def validate_token(self, token: str) -> bool:
+        """
+        Valida um token JWT localmente
+        
+        Args:
+            token: Token JWT string
+            
+        Returns:
+            bool: True se válido, False caso contrário
+        """
         try:
-            assunto = "Verifique seu email - Stonks"
-            corpo = f"""
-            <html>
-            <body>
-                <h2>Bem-vindo ao Stonks, {usuario.nome}!</h2>
-                <p>Por favor, clique no link abaixo para verificar seu email e ativar sua conta:</p>
-                <p><a href="{os.getenv('BASE_URL', 'http://localhost:5000')}/auth/verify-email/{usuario.token_verificacao}">
-                    Verificar Email
-                </a></p>
-                <p>Se você não se cadastrou no Stonks, ignore este email.</p>
-                <p>Este link expira em 24 horas.</p>
-                <br>
-                <p>Atenciosamente,<br>Equipe Stonks</p>
-            </body>
-            </html>
-            """
-            
-            self._enviar_email(usuario.email, assunto, corpo)
-            logger.info(f"Email de verificação enviado para {usuario.email}")
-            
+            return jwt_validator.validate_token(token)
         except Exception as e:
-            logger.error(f"Erro ao enviar email de verificação: {e}")
+            logger.error(f"Erro ao validar token: {e}")
+            return False
     
-    def _enviar_email_reset_senha(self, usuario: User, token: str):
-        """Envia email de reset de senha"""
+    def get_user_id_from_token(self, token: str) -> Optional[str]:
+        """
+        Extrai o ID do usuário de um token JWT
+        
+        Args:
+            token: Token JWT string
+            
+        Returns:
+            UUID do usuário ou None
+        """
         try:
-            assunto = "Reset de Senha - Stonks"
-            corpo = f"""
-            <html>
-            <body>
-                <h2>Reset de Senha</h2>
-                <p>Olá {usuario.nome},</p>
-                <p>Recebemos uma solicitação para resetar sua senha. Clique no link abaixo:</p>
-                <p><a href="{os.getenv('BASE_URL', 'http://localhost:5000')}/auth/reset-password/{token}">
-                    Resetar Senha
-                </a></p>
-                <p>Se você não solicitou esta alteração, ignore este email.</p>
-                <p>Este link expira em 2 horas.</p>
-                <br>
-                <p>Atenciosamente,<br>Equipe Stonks</p>
-            </body>
-            </html>
-            """
-            
-            self._enviar_email(usuario.email, assunto, corpo)
-            logger.info(f"Email de reset enviado para {usuario.email}")
-            
+            return jwt_validator.get_user_id(token)
         except Exception as e:
-            logger.error(f"Erro ao enviar email de reset: {e}")
+            logger.error(f"Erro ao extrair user_id do token: {e}")
+            return None
     
-    def _enviar_email(self, para_email: str, assunto: str, corpo_html: str):
-        """Envia email usando SMTP"""
-        if not self.smtp_user or not self.smtp_password:
-            raise Exception("Configurações de SMTP não encontradas")
+    def get_user_data_from_token(self, token: str) -> Optional[Dict[str, Any]]:
+        """
+        Extrai dados do usuário de um token JWT
         
-        msg = MIMEMultipart('alternative')
-        msg['Subject'] = assunto
-        msg['From'] = self.from_email
-        msg['To'] = para_email
+        Args:
+            token: Token JWT string
+            
+        Returns:
+            Dict com dados do usuário ou None
+        """
+        try:
+            return jwt_validator.get_user_data(token)
+        except Exception as e:
+            logger.error(f"Erro ao extrair dados do token: {e}")
+            return None
+    
+    def check_email_available(self, email: str) -> bool:
+        """
+        Verifica se um email está disponível (não implementado no modulo-auth)
         
-        # Adicionar corpo HTML
-        html_part = MIMEText(corpo_html, 'html')
-        msg.attach(html_part)
-        
-        # Enviar email
-        server = smtplib.SMTP(self.smtp_server, self.smtp_port)
-        server.starttls()
-        server.login(self.smtp_user, self.smtp_password)
-        server.send_message(msg)
-        server.quit()
+        Args:
+            email: Email a verificar
+            
+        Returns:
+            bool: True se disponível, False caso contrário
+        """
+        # O modulo-auth não tem endpoint para verificar email
+        # Esta verificação será feita na tentativa de registro
+        return True
+
+
+# Instância global do serviço
+auth_service = AuthService()

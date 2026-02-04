@@ -1,6 +1,5 @@
-from sqlalchemy import Column, Integer, String, Float, DateTime, ForeignKey
+from sqlalchemy import Column, Integer, String, Float, DateTime
 from sqlalchemy.sql import func
-from sqlalchemy.orm import relationship
 from .database import Base
 from datetime import datetime, date
 
@@ -10,7 +9,7 @@ class Purchase(Base):
     
     # Campos básicos
     id = Column(Integer, primary_key=True, index=True)
-    user_id = Column(Integer, ForeignKey('users.id'), nullable=False, index=True)
+    auth_id = Column(String(36), nullable=False, index=True)  # UUID do modulo-auth
     ticker = Column(String(10), nullable=False, index=True)
     nome_ativo = Column(String(200))
     
@@ -32,9 +31,6 @@ class Purchase(Base):
     criado_em = Column(DateTime(timezone=True), server_default=func.now())
     atualizado_em = Column(DateTime(timezone=True), server_default=func.now(), onupdate=func.now())
     
-    # Relacionamento com usuário
-    # user = relationship("User", back_populates="purchases")
-    
     def __repr__(self):
         return f'<Purchase {self.ticker} - {self.quantidade} unidades>'
     
@@ -42,7 +38,7 @@ class Purchase(Base):
         """Converte o objeto para dicionário"""
         return {
             'id': self.id,
-            'user_id': self.user_id,
+            'auth_id': self.auth_id,
             'ticker': self.ticker,
             'nome_ativo': self.nome_ativo,
             'quantidade': self.quantidade,
@@ -60,7 +56,7 @@ class Purchase(Base):
         }
 
 # Funções helper para operações de compras
-def create_purchase(user_id, ticker, nome_ativo, quantidade, preco_unitario, taxas=0.0, data_compra=None, classe_ativo=None):
+def create_purchase(auth_id, ticker, nome_ativo, quantidade, preco_unitario, taxas=0.0, data_compra=None, classe_ativo=None):
     """Cria uma nova compra usando ORM"""
     from .database import SessionLocal
     
@@ -76,7 +72,7 @@ def create_purchase(user_id, ticker, nome_ativo, quantidade, preco_unitario, tax
     
     with SessionLocal() as db:
         purchase = Purchase(
-            user_id=user_id,
+            auth_id=auth_id,
             ticker=ticker.upper(),
             nome_ativo=nome_ativo,
             quantidade=quantidade,
@@ -92,12 +88,12 @@ def create_purchase(user_id, ticker, nome_ativo, quantidade, preco_unitario, tax
         db.refresh(purchase)
         return purchase.id
 
-def get_purchases_by_user(user_id, limit=50, offset=0, order_by='data_compra', order_dir='DESC'):
+def get_purchases_by_user(auth_id, limit=50, offset=0, order_by='data_compra', order_dir='DESC'):
     """Busca compras de um usuário com paginação usando ORM"""
     from .database import SessionLocal
     
     with SessionLocal() as db:
-        query = db.query(Purchase).filter(Purchase.user_id == user_id)
+        query = db.query(Purchase).filter(Purchase.auth_id == auth_id)
         
         # Aplicar ordenação
         order_column = getattr(Purchase, order_by, Purchase.data_compra)
@@ -111,17 +107,17 @@ def get_purchases_by_user(user_id, limit=50, offset=0, order_by='data_compra', o
         
         return purchases
 
-def get_purchase_by_id(purchase_id, user_id):
+def get_purchase_by_id(purchase_id, auth_id):
     """Busca uma compra específica do usuário usando ORM"""
     from .database import SessionLocal
     
     with SessionLocal() as db:
         return db.query(Purchase).filter(
             Purchase.id == purchase_id,
-            Purchase.user_id == user_id
+            Purchase.auth_id == auth_id
         ).first()
 
-def update_purchase(purchase_id, user_id, **kwargs):
+def update_purchase(purchase_id, auth_id, **kwargs):
     """Atualiza uma compra usando ORM"""
     from .database import SessionLocal
     
@@ -130,7 +126,7 @@ def update_purchase(purchase_id, user_id, **kwargs):
     with SessionLocal() as db:
         purchase = db.query(Purchase).filter(
             Purchase.id == purchase_id,
-            Purchase.user_id == user_id
+            Purchase.auth_id == auth_id
         ).first()
         
         if not purchase:
@@ -149,14 +145,14 @@ def update_purchase(purchase_id, user_id, **kwargs):
         db.commit()
         return True
 
-def delete_purchase(purchase_id, user_id):
+def delete_purchase(purchase_id, auth_id):
     """Deleta uma compra usando ORM"""
     from .database import SessionLocal
     
     with SessionLocal() as db:
         purchase = db.query(Purchase).filter(
             Purchase.id == purchase_id,
-            Purchase.user_id == user_id
+            Purchase.auth_id == auth_id
         ).first()
         
         if not purchase:
@@ -166,7 +162,7 @@ def delete_purchase(purchase_id, user_id):
         db.commit()
         return True
 
-def get_portfolio_summary(user_id):
+def get_portfolio_summary(auth_id):
     """Resume o portfolio do usuário usando ORM"""
     from .database import SessionLocal
     from sqlalchemy import func, and_
@@ -179,7 +175,7 @@ def get_portfolio_summary(user_id):
                 func.sum(Purchase.quantidade).label('total_ativos'),
                 func.count(func.distinct(Purchase.ticker)).label('total_tickers'),
                 func.avg(Purchase.preco_medio).label('preco_medio_geral')
-            ).filter(Purchase.user_id == user_id).first()
+            ).filter(Purchase.auth_id == auth_id).first()
             
             return {
                 'total_compras': result.total_compras or 0,
@@ -198,17 +194,17 @@ def get_portfolio_summary(user_id):
             'preco_medio_geral': 0.0
         }
 
-def get_purchases_by_ticker(user_id, ticker):
+def get_purchases_by_ticker(auth_id, ticker):
     """Busca compras de um ticker específico usando ORM"""
     from .database import SessionLocal
     
     with SessionLocal() as db:
         return db.query(Purchase).filter(
-            Purchase.user_id == user_id,
+            Purchase.auth_id == auth_id,
             Purchase.ticker == ticker.upper()
         ).order_by(Purchase.data_compra.asc()).all()
 
-def get_portfolio_distribution(user_id):
+def get_portfolio_distribution(auth_id):
     """Busca distribuição do portfolio por ticker usando ORM"""
     from .database import SessionLocal
     from sqlalchemy import func
@@ -223,7 +219,7 @@ def get_portfolio_distribution(user_id):
                 func.avg(Purchase.preco_medio).label('preco_medio'),
                 func.count(Purchase.id).label('num_compras')
             ).filter(
-                Purchase.user_id == user_id
+                Purchase.auth_id == auth_id
             ).group_by(
                 Purchase.ticker,
                 Purchase.nome_ativo
@@ -246,7 +242,7 @@ def get_portfolio_distribution(user_id):
         print(f"Erro ao obter distribuição do portfolio: {e}")
         return []
 
-def get_portfolio_performance(user_id):
+def get_portfolio_performance(auth_id):
     """Calcula performance do portfolio usando ORM"""
     from .database import SessionLocal
     from sqlalchemy import func
@@ -260,7 +256,7 @@ def get_portfolio_performance(user_id):
             func.sum(Purchase.custo_total).label('total_custo'),
             func.avg(Purchase.preco_medio).label('preco_medio_calculado')
         ).filter(
-            Purchase.user_id == user_id
+            Purchase.auth_id == auth_id
         ).group_by(
             Purchase.ticker,
             Purchase.nome_ativo
