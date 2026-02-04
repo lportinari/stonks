@@ -13,3 +13,4 @@ python-dotenv==1.0.0
 schedule==1.2.0
 lxml==4.9.3
 bcrypt==4.0.1
+psycopg2-binary==2.9.9

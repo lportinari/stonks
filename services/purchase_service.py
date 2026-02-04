@@ -1,8 +1,9 @@
-import sqlite3
 import logging
 from datetime import datetime, date
 from typing import List, Dict, Any, Optional
 from models.purchase import Purchase, create_purchase, get_purchases_by_user, get_purchase_by_id, update_purchase, delete_purchase, get_portfolio_summary, get_portfolio_distribution, get_portfolio_performance
+from models.database import SessionLocal
+from sqlalchemy import func
 
 logger = logging.getLogger(__name__)
 
@@ -237,14 +238,11 @@ class PurchaseService:
     def get_tickers_usuario(self, user_id: int) -> List[str]:
         """Obtém lista de tickers do usuário"""
         try:
-            with sqlite3.connect('database/stocks.db') as conn:
-                cursor = conn.cursor()
-                cursor.execute('''
-                    SELECT DISTINCT ticker FROM purchases 
-                    WHERE user_id = ? 
-                    ORDER BY ticker
-                ''', (user_id,))
-                return [row[0] for row in cursor.fetchall()]
+            with SessionLocal() as db:
+                tickers = db.query(Purchase.ticker).filter(
+                    Purchase.user_id == user_id
+                ).distinct().order_by(Purchase.ticker).all()
+                return [t[0] for t in tickers]
                 
         except Exception as e:
             logger.error(f"Erro ao obter tickers: {e}")
@@ -253,16 +251,11 @@ class PurchaseService:
     def _get_total_compras(self, user_id: int, ticker_filter: str = None) -> int:
         """Obtém total de compras para paginação"""
         try:
-            with sqlite3.connect('database/stocks.db') as conn:
-                cursor = conn.cursor()
+            with SessionLocal() as db:
+                query = db.query(func.count(Purchase.id)).filter(Purchase.user_id == user_id)
                 if ticker_filter:
-                    cursor.execute('''
-                        SELECT COUNT(*) FROM purchases 
-                        WHERE user_id = ? AND UPPER(ticker) = ?
-                    ''', (user_id, ticker_filter.upper()))
-                else:
-                    cursor.execute('SELECT COUNT(*) FROM purchases WHERE user_id = ?', (user_id,))
-                return cursor.fetchone()[0]
+                    query = query.filter(func.upper(Purchase.ticker) == ticker_filter.upper())
+                return query.scalar() or 0
                 
         except Exception as e:
             logger.error(f"Erro ao contar compras: {e}")
@@ -273,49 +266,21 @@ class PurchaseService:
         try:
             offset = (page - 1) * per_page
             
-            with sqlite3.connect('database/stocks.db') as conn:
-                conn.row_factory = sqlite3.Row
-                cursor = conn.cursor()
-                
+            with SessionLocal() as db:
                 search_pattern = f'%{query.upper()}%'
-                cursor.execute('''
-                    SELECT * FROM purchases 
-                    WHERE user_id = ? 
-                    AND (UPPER(ticker) LIKE ? OR UPPER(nome_ativo) LIKE ?)
-                    ORDER BY data_compra DESC
-                    LIMIT ? OFFSET ?
-                ''', (user_id, search_pattern, search_pattern, per_page, offset))
                 
-                rows = cursor.fetchall()
+                # Buscar compras
+                compras_query = db.query(Purchase).filter(
+                    Purchase.user_id == user_id,
+                    (func.upper(Purchase.ticker).like(search_pattern) | 
+                     func.upper(Purchase.nome_ativo).like(search_pattern))
+                ).order_by(Purchase.data_compra.desc())
                 
-                compras = []
-                for row in rows:
-                    compra = Purchase(
-                        id=row['id'],
-                        user_id=row['user_id'],
-                        ticker=row['ticker'],
-                        nome_ativo=row['nome_ativo'],
-                        quantidade=row['quantidade'],
-                        preco_unitario=row['preco_unitario'],
-                        taxas=row['taxas'],
-                        custo_total=row['custo_total'],
-                        preco_medio=row['preco_medio'],
-                        data_compra=datetime.strptime(row['data_compra'], '%Y-%m-%d').date(),
-                        quantidade_vendida=row['quantidade_vendida'],
-                        preco_venda=row['preco_venda'],
-                        data_venda=datetime.strptime(row['data_venda'], '%Y-%m-%d').date() if row['data_venda'] else None,
-                        criado_em=datetime.fromisoformat(row['criado_em']) if row['criado_em'] else None,
-                        atualizado_em=datetime.fromisoformat(row['atualizado_em']) if row['atualizado_em'] else None
-                    )
-                    compras.append(compra)
+                # Contar total
+                total_compras = compras_query.count()
                 
-                # Buscar total
-                cursor.execute('''
-                    SELECT COUNT(*) FROM purchases 
-                    WHERE user_id = ? 
-                    AND (UPPER(ticker) LIKE ? OR UPPER(nome_ativo) LIKE ?)
-                ''', (user_id, search_pattern, search_pattern))
-                total_compras = cursor.fetchone()[0]
+                # Aplicar paginação
+                compras = compras_query.offset(offset).limit(per_page).all()
                 
                 total_pages = (total_compras + per_page - 1) // per_page
                 

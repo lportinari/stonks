@@ -1,30 +1,42 @@
-import sqlite3
+from sqlalchemy import Column, Integer, String, Float, DateTime, ForeignKey
+from sqlalchemy.sql import func
+from sqlalchemy.orm import relationship
+from .database import Base
 from datetime import datetime, date
 
-class Purchase:
-    """Modelo de Compra para SQLite"""
+class Purchase(Base):
+    """Modelo de Compra usando SQLAlchemy ORM"""
+    __tablename__ = 'purchases'
     
-    def __init__(self, id=None, user_id=None, ticker=None, nome_ativo=None, 
-                 quantidade=None, preco_unitario=None, taxas=0.0, custo_total=None,
-                 preco_medio=None, data_compra=None, quantidade_vendida=0,
-                 preco_venda=None, data_venda=None, classe_ativo=None,
-                 criado_em=None, atualizado_em=None):
-        self.id = id
-        self.user_id = user_id
-        self.ticker = ticker
-        self.nome_ativo = nome_ativo
-        self.quantidade = quantidade
-        self.preco_unitario = preco_unitario
-        self.taxas = taxas
-        self.custo_total = custo_total
-        self.preco_medio = preco_medio
-        self.data_compra = data_compra
-        self.quantidade_vendida = quantidade_vendida
-        self.preco_venda = preco_venda
-        self.data_venda = data_venda
-        self.classe_ativo = classe_ativo
-        self.criado_em = criado_em
-        self.atualizado_em = atualizado_em
+    # Campos básicos
+    id = Column(Integer, primary_key=True, index=True)
+    user_id = Column(Integer, ForeignKey('users.id'), nullable=False, index=True)
+    ticker = Column(String(10), nullable=False, index=True)
+    nome_ativo = Column(String(200))
+    
+    # Dados da compra
+    quantidade = Column(Integer, nullable=False)
+    preco_unitario = Column(Float, nullable=False)
+    taxas = Column(Float, default=0.0)
+    custo_total = Column(Float, nullable=False)
+    preco_medio = Column(Float, nullable=False)
+    data_compra = Column(DateTime(timezone=True), nullable=False)
+    classe_ativo = Column(String(20))  # 'acao', 'fii', 'etf', 'bdr'
+    
+    # Venda (opcional)
+    quantidade_vendida = Column(Integer, default=0)
+    preco_venda = Column(Float)
+    data_venda = Column(DateTime(timezone=True))
+    
+    # Metadados
+    criado_em = Column(DateTime(timezone=True), server_default=func.now())
+    atualizado_em = Column(DateTime(timezone=True), server_default=func.now(), onupdate=func.now())
+    
+    # Relacionamento com usuário
+    # user = relationship("User", back_populates="purchases")
+    
+    def __repr__(self):
+        return f'<Purchase {self.ticker} - {self.quantidade} unidades>'
     
     def to_dict(self):
         """Converte o objeto para dicionário"""
@@ -46,14 +58,14 @@ class Purchase:
             'criado_em': self.criado_em.isoformat() if self.criado_em else None,
             'atualizado_em': self.atualizado_em.isoformat() if self.atualizado_em else None
         }
-    
-    def __repr__(self):
-        return f'<Purchase {self.ticker} - {self.quantidade} unidades>'
 
+# Funções helper para operações de compras
 def create_purchase(user_id, ticker, nome_ativo, quantidade, preco_unitario, taxas=0.0, data_compra=None, classe_ativo=None):
-    """Cria uma nova compra"""
+    """Cria uma nova compra usando ORM"""
+    from .database import SessionLocal
+    
     if data_compra is None:
-        data_compra = date.today()
+        data_compra = datetime.now()
     
     # Calcular custo total e preço médio
     quantidade = int(quantidade)
@@ -62,279 +74,220 @@ def create_purchase(user_id, ticker, nome_ativo, quantidade, preco_unitario, tax
     custo_total = (quantidade * preco_unitario) + taxas
     preco_medio = custo_total / quantidade
     
-    with sqlite3.connect('database/stocks.db') as conn:
-        cursor = conn.cursor()
-        cursor.execute('''
-            INSERT INTO purchases (user_id, ticker, nome_ativo, quantidade, preco_unitario, 
-                                 taxas, custo_total, preco_medio, data_compra, classe_ativo)
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-        ''', (user_id, ticker, nome_ativo, quantidade, preco_unitario, 
-               taxas, custo_total, preco_medio, data_compra, classe_ativo))
-        conn.commit()
-        return cursor.lastrowid
+    with SessionLocal() as db:
+        purchase = Purchase(
+            user_id=user_id,
+            ticker=ticker.upper(),
+            nome_ativo=nome_ativo,
+            quantidade=quantidade,
+            preco_unitario=preco_unitario,
+            taxas=taxas,
+            custo_total=custo_total,
+            preco_medio=preco_medio,
+            data_compra=data_compra,
+            classe_ativo=classe_ativo
+        )
+        db.add(purchase)
+        db.commit()
+        db.refresh(purchase)
+        return purchase.id
 
 def get_purchases_by_user(user_id, limit=50, offset=0, order_by='data_compra', order_dir='DESC'):
-    """Busca compras de um usuário com paginação"""
-    with sqlite3.connect('database/stocks.db') as conn:
-        conn.row_factory = sqlite3.Row
-        cursor = conn.cursor()
+    """Busca compras de um usuário com paginação usando ORM"""
+    from .database import SessionLocal
+    
+    with SessionLocal() as db:
+        query = db.query(Purchase).filter(Purchase.user_id == user_id)
         
-        order_clause = f"ORDER BY {order_by} {order_dir}"
+        # Aplicar ordenação
+        order_column = getattr(Purchase, order_by, Purchase.data_compra)
+        if order_dir.upper() == 'DESC':
+            query = query.order_by(order_column.desc())
+        else:
+            query = query.order_by(order_column.asc())
         
-        cursor.execute(f'''
-            SELECT * FROM purchases 
-            WHERE user_id = ? 
-            {order_clause}
-            LIMIT ? OFFSET ?
-        ''', (user_id, limit, offset))
-        
-        rows = cursor.fetchall()
-        
-        purchases = []
-        for row in rows:
-            purchase = Purchase(
-                id=row['id'],
-                user_id=row['user_id'],
-                ticker=row['ticker'],
-                nome_ativo=row['nome_ativo'],
-                quantidade=row['quantidade'],
-                preco_unitario=row['preco_unitario'],
-                taxas=row['taxas'],
-                custo_total=row['custo_total'],
-                preco_medio=row['preco_medio'],
-                data_compra=datetime.strptime(row['data_compra'], '%Y-%m-%d').date(),
-                quantidade_vendida=row['quantidade_vendida'],
-                preco_venda=row['preco_venda'],
-                data_venda=datetime.strptime(row['data_venda'], '%Y-%m-%d').date() if row['data_venda'] else None,
-                classe_ativo=row['classe_ativo'] if 'classe_ativo' in row.keys() else None,
-                criado_em=datetime.fromisoformat(row['criado_em']) if row['criado_em'] else None,
-                atualizado_em=datetime.fromisoformat(row['atualizado_em']) if row['atualizado_em'] else None
-            )
-            purchases.append(purchase)
+        # Aplicar paginação
+        purchases = query.offset(offset).limit(limit).all()
         
         return purchases
 
 def get_purchase_by_id(purchase_id, user_id):
-    """Busca uma compra específica do usuário"""
-    with sqlite3.connect('database/stocks.db') as conn:
-        conn.row_factory = sqlite3.Row
-        cursor = conn.cursor()
-        cursor.execute('SELECT * FROM purchases WHERE id = ? AND user_id = ?', (purchase_id, user_id))
-        row = cursor.fetchone()
-        
-        if row:
-            return Purchase(
-                id=row['id'],
-                user_id=row['user_id'],
-                ticker=row['ticker'],
-                nome_ativo=row['nome_ativo'],
-                quantidade=row['quantidade'],
-                preco_unitario=row['preco_unitario'],
-                taxas=row['taxas'],
-                custo_total=row['custo_total'],
-                preco_medio=row['preco_medio'],
-                data_compra=datetime.strptime(row['data_compra'], '%Y-%m-%d').date(),
-                quantidade_vendida=row['quantidade_vendida'],
-                preco_venda=row['preco_venda'],
-                data_venda=datetime.strptime(row['data_venda'], '%Y-%m-%d').date() if row['data_venda'] else None,
-                classe_ativo=row.get('classe_ativo'),
-                criado_em=datetime.fromisoformat(row['criado_em']) if row['criado_em'] else None,
-                atualizado_em=datetime.fromisoformat(row['atualizado_em']) if row['atualizado_em'] else None
-            )
-        return None
+    """Busca uma compra específica do usuário usando ORM"""
+    from .database import SessionLocal
+    
+    with SessionLocal() as db:
+        return db.query(Purchase).filter(
+            Purchase.id == purchase_id,
+            Purchase.user_id == user_id
+        ).first()
 
 def update_purchase(purchase_id, user_id, **kwargs):
-    """Atualiza uma compra"""
+    """Atualiza uma compra usando ORM"""
+    from .database import SessionLocal
+    
     allowed_fields = ['ticker', 'nome_ativo', 'quantidade', 'preco_unitario', 'taxas', 'data_compra']
     
-    set_clause = []
-    values = []
-    
-    for field, value in kwargs.items():
-        if field in allowed_fields:
-            set_clause.append(f"{field} = ?")
-            values.append(value)
-    
-    if not set_clause:
-        return False
-    
-    values.append(purchase_id)
-    values.append(user_id)
-    
-    with sqlite3.connect('database/stocks.db') as conn:
-        cursor = conn.cursor()
-        cursor.execute(f'''
-            UPDATE purchases 
-            SET {', '.join(set_clause)}, atualizado_em = CURRENT_TIMESTAMP
-            WHERE id = ? AND user_id = ?
-        ''', values)
-        conn.commit()
-        return cursor.rowcount > 0
+    with SessionLocal() as db:
+        purchase = db.query(Purchase).filter(
+            Purchase.id == purchase_id,
+            Purchase.user_id == user_id
+        ).first()
+        
+        if not purchase:
+            return False
+        
+        # Atualizar campos permitidos
+        for field, value in kwargs.items():
+            if field in allowed_fields:
+                setattr(purchase, field, value)
+        
+        # Recalcular custo total e preço médio se necessário
+        if 'quantidade' in kwargs or 'preco_unitario' in kwargs or 'taxas' in kwargs:
+            purchase.custo_total = (purchase.quantidade * purchase.preco_unitario) + purchase.taxas
+            purchase.preco_medio = purchase.custo_total / purchase.quantidade if purchase.quantidade > 0 else 0
+        
+        db.commit()
+        return True
 
 def delete_purchase(purchase_id, user_id):
-    """Deleta uma compra"""
-    with sqlite3.connect('database/stocks.db') as conn:
-        cursor = conn.cursor()
-        cursor.execute('DELETE FROM purchases WHERE id = ? AND user_id = ?', (purchase_id, user_id))
-        conn.commit()
-        return cursor.rowcount > 0
+    """Deleta uma compra usando ORM"""
+    from .database import SessionLocal
+    
+    with SessionLocal() as db:
+        purchase = db.query(Purchase).filter(
+            Purchase.id == purchase_id,
+            Purchase.user_id == user_id
+        ).first()
+        
+        if not purchase:
+            return False
+        
+        db.delete(purchase)
+        db.commit()
+        return True
 
 def get_portfolio_summary(user_id):
-    """Resume o portfolio do usuário"""
+    """Resume o portfolio do usuário usando ORM"""
+    from .database import SessionLocal
+    from sqlalchemy import func, and_
+    
     try:
-        with sqlite3.connect('database/stocks.db') as conn:
-            conn.row_factory = sqlite3.Row
-            cursor = conn.cursor()
-            
-            cursor.execute('''
-                SELECT 
-                    COUNT(*) as total_compras,
-                    COALESCE(SUM(custo_total), 0) as total_investido,
-                    COALESCE(SUM(quantidade), 0) as total_ativos,
-                    COUNT(DISTINCT ticker) as total_tickers,
-                    COALESCE(AVG(preco_medio), 0) as preco_medio_geral
-                FROM purchases 
-                WHERE user_id = ?
-            ''', (user_id,))
-            
-            result = cursor.fetchone()
-            
-            # Converter Row para dict para evitar erros
-            if result:
-                return {
-                    'total_compras': result['total_compras'] or 0,
-                    'total_investido': result['total_investido'] or 0,
-                    'total_ativos': result['total_ativos'] or 0,
-                    'total_tickers': result['total_tickers'] or 0,
-                    'preco_medio_geral': result['preco_medio_geral'] or 0
-                }
+        with SessionLocal() as db:
+            result = db.query(
+                func.count(Purchase.id).label('total_compras'),
+                func.sum(Purchase.custo_total).label('total_investido'),
+                func.sum(Purchase.quantidade).label('total_ativos'),
+                func.count(func.distinct(Purchase.ticker)).label('total_tickers'),
+                func.avg(Purchase.preco_medio).label('preco_medio_geral')
+            ).filter(Purchase.user_id == user_id).first()
             
             return {
-                'total_compras': 0,
-                'total_investido': 0,
-                'total_ativos': 0,
-                'total_tickers': 0,
-                'preco_medio_geral': 0
+                'total_compras': result.total_compras or 0,
+                'total_investido': float(result.total_investido) if result.total_investido else 0.0,
+                'total_ativos': result.total_ativos or 0,
+                'total_tickers': result.total_tickers or 0,
+                'preco_medio_geral': float(result.preco_medio_geral) if result.preco_medio_geral else 0.0
             }
-            
     except Exception as e:
         print(f"Erro ao obter resumo do portfolio: {e}")
         return {
             'total_compras': 0,
-            'total_investido': 0,
+            'total_investido': 0.0,
             'total_ativos': 0,
             'total_tickers': 0,
-            'preco_medio_geral': 0
+            'preco_medio_geral': 0.0
         }
 
 def get_purchases_by_ticker(user_id, ticker):
-    """Busca compras de um ticker específico"""
-    with sqlite3.connect('database/stocks.db') as conn:
-        conn.row_factory = sqlite3.Row
-        cursor = conn.cursor()
-        cursor.execute('''
-            SELECT * FROM purchases 
-            WHERE user_id = ? AND ticker = ?
-            ORDER BY data_compra ASC
-        ''', (user_id, ticker))
-        
-        rows = cursor.fetchall()
-        
-        purchases = []
-        for row in rows:
-            purchase = Purchase(
-                id=row['id'],
-                user_id=row['user_id'],
-                ticker=row['ticker'],
-                nome_ativo=row['nome_ativo'],
-                quantidade=row['quantidade'],
-                preco_unitario=row['preco_unitario'],
-                taxas=row['taxas'],
-                custo_total=row['custo_total'],
-                preco_medio=row['preco_medio'],
-                data_compra=datetime.strptime(row['data_compra'], '%Y-%m-%d').date(),
-                quantidade_vendida=row['quantidade_vendida'],
-                preco_venda=row['preco_venda'],
-                data_venda=datetime.strptime(row['data_venda'], '%Y-%m-%d').date() if row['data_venda'] else None,
-                classe_ativo=row.get('classe_ativo'),
-                criado_em=datetime.fromisoformat(row['criado_em']) if row['criado_em'] else None,
-                atualizado_em=datetime.fromisoformat(row['atualizado_em']) if row['atualizado_em'] else None
-            )
-            purchases.append(purchase)
-        
-        return purchases
+    """Busca compras de um ticker específico usando ORM"""
+    from .database import SessionLocal
+    
+    with SessionLocal() as db:
+        return db.query(Purchase).filter(
+            Purchase.user_id == user_id,
+            Purchase.ticker == ticker.upper()
+        ).order_by(Purchase.data_compra.asc()).all()
 
 def get_portfolio_distribution(user_id):
-    """Busca distribuição do portfolio por ticker"""
+    """Busca distribuição do portfolio por ticker usando ORM"""
+    from .database import SessionLocal
+    from sqlalchemy import func
+    
     try:
-        with sqlite3.connect('database/stocks.db') as conn:
-            conn.row_factory = sqlite3.Row
-            cursor = conn.cursor()
-            cursor.execute('''
-                SELECT 
-                    ticker,
-                    nome_ativo,
-                    COALESCE(SUM(quantidade), 0) as total_quantidade,
-                    COALESCE(SUM(custo_total), 0) as total_custo,
-                    COALESCE(AVG(preco_medio), 0) as preco_medio,
-                    COUNT(*) as num_compras
-                FROM purchases 
-                WHERE user_id = ?
-                GROUP BY ticker, nome_ativo
-                ORDER BY total_custo DESC
-            ''', (user_id,))
+        with SessionLocal() as db:
+            results = db.query(
+                Purchase.ticker,
+                Purchase.nome_ativo,
+                func.sum(Purchase.quantidade).label('total_quantidade'),
+                func.sum(Purchase.custo_total).label('total_custo'),
+                func.avg(Purchase.preco_medio).label('preco_medio'),
+                func.count(Purchase.id).label('num_compras')
+            ).filter(
+                Purchase.user_id == user_id
+            ).group_by(
+                Purchase.ticker,
+                Purchase.nome_ativo
+            ).order_by(
+                func.sum(Purchase.custo_total).desc()
+            ).all()
             
-            rows = cursor.fetchall()
-            
-            # Converter Row objects para dicts
-            return [dict(row) for row in rows]
-            
+            return [
+                {
+                    'ticker': r.ticker,
+                    'nome_ativo': r.nome_ativo,
+                    'total_quantidade': r.total_quantidade or 0,
+                    'total_custo': float(r.total_custo) if r.total_custo else 0.0,
+                    'preco_medio': float(r.preco_medio) if r.preco_medio else 0.0,
+                    'num_compras': r.num_compras or 0
+                }
+                for r in results
+            ]
     except Exception as e:
         print(f"Erro ao obter distribuição do portfolio: {e}")
         return []
 
 def get_portfolio_performance(user_id):
-    """Calcula performance do portfolio"""
-    with sqlite3.connect('database/stocks.db') as conn:
-        conn.row_factory = sqlite3.Row
-        cursor = conn.cursor()
-        
+    """Calcula performance do portfolio usando ORM"""
+    from .database import SessionLocal
+    from sqlalchemy import func
+    
+    with SessionLocal() as db:
         # Buscar dados agrupados por ticker
-        cursor.execute('''
-            SELECT 
-                ticker,
-                nome_ativo,
-                SUM(quantidade) as total_quantidade,
-                SUM(custo_total) as total_custo,
-                AVG(preco_medio) as preco_medio_calculado
-            FROM purchases 
-            WHERE user_id = ?
-            GROUP BY ticker, nome_ativo
-            ORDER BY total_custo DESC
-        ''', (user_id,))
-        
-        tickers_data = cursor.fetchall()
+        ticker_data = db.query(
+            Purchase.ticker,
+            Purchase.nome_ativo,
+            func.sum(Purchase.quantidade).label('total_quantidade'),
+            func.sum(Purchase.custo_total).label('total_custo'),
+            func.avg(Purchase.preco_medio).label('preco_medio_calculado')
+        ).filter(
+            Purchase.user_id == user_id
+        ).group_by(
+            Purchase.ticker,
+            Purchase.nome_ativo
+        ).order_by(
+            func.sum(Purchase.custo_total).desc()
+        ).all()
         
         performance_data = []
-        total_investido = 0
+        total_investido = 0.0
         
-        for ticker_info in tickers_data:
-            ticker = ticker_info['ticker']
-            quantidade = ticker_info['total_quantidade']
-            custo_total = ticker_info['total_custo']
-            preco_medio_calculado = ticker_info['preco_medio_calculado']
+        for ticker_info in ticker_data:
+            ticker = ticker_info.ticker
+            quantidade = ticker_info.total_quantidade or 0
+            custo_total = float(ticker_info.total_custo) if ticker_info.total_custo else 0.0
+            preco_medio_calculado = float(ticker_info.preco_medio_calculado) if ticker_info.preco_medio_calculado else 0.0
             
             total_investido += custo_total
             
             # Simular preço atual (em produção, buscar de API)
-            preco_atual = preco_medio_calculado * (1 + (hash(ticker) % 20 - 10) / 100)  # Variação -10% a +10%
+            preco_atual = preco_medio_calculado * (1 + (hash(ticker) % 20 - 10) / 100)
             valor_atual = quantidade * preco_atual
             resultado = valor_atual - custo_total
-            resultado_percentual = (resultado / custo_total) * 100 if custo_total > 0 else 0
+            resultado_percentual = (resultado / custo_total) * 100 if custo_total > 0 else 0.0
             
             performance_data.append({
                 'ticker': ticker,
-                'nome_ativo': ticker_info['nome_ativo'],
+                'nome_ativo': ticker_info.nome_ativo,
                 'quantidade': quantidade,
                 'custo_total': custo_total,
                 'preco_medio': preco_medio_calculado,
@@ -347,7 +300,7 @@ def get_portfolio_performance(user_id):
         # Calcular totais
         valor_atual_total = sum(item['valor_atual'] for item in performance_data)
         resultado_total = valor_atual_total - total_investido
-        resultado_percentual_total = (resultado_total / total_investido) * 100 if total_investido > 0 else 0
+        resultado_percentual_total = (resultado_total / total_investido) * 100 if total_investido > 0 else 0.0
         
         return {
             'tickers': performance_data,

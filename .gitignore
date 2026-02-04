@@ -18,7 +18,6 @@ venv*/
 
 # Environment variables
 .env
-.env.*
 instance/.env
 
 # Flask

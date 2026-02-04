@@ -5,7 +5,51 @@ load_dotenv()
 
 class Config:
     SECRET_KEY = os.environ.get('SECRET_KEY') or 'stonks-secret-key-2024'
-    DATABASE_URL = os.environ.get('DATABASE_URL') or 'sqlite:///database/stocks.db'
+    
+    # Configuração do banco de dados
+    # Prioridade: Variável de ambiente > PostgreSQL padrão > SQLite fallback
+    DATABASE_URL = os.environ.get('DATABASE_URL')
+    
+    if not DATABASE_URL:
+        # Tentar conectar ao PostgreSQL
+        try:
+            import psycopg2
+            pg_host = os.environ.get('POSTGRES_HOST', 'localhost')
+            pg_port = int(os.environ.get('POSTGRES_PORT', '5432'))
+            pg_db = os.environ.get('POSTGRES_DB', 'stonks')
+            pg_user = os.environ.get('POSTGRES_USER', 'postgres')
+            pg_password = os.environ.get('POSTGRES_PASSWORD', 'postgres')
+            
+            # Testar conexão PostgreSQL
+            conn = psycopg2.connect(
+                host=pg_host,
+                port=pg_port,
+                database=pg_db,
+                user=pg_user,
+                password=pg_password,
+                connect_timeout=3
+            )
+            conn.close()
+            
+            DATABASE_URL = f'postgresql://{pg_user}:{pg_password}@{pg_host}:{pg_port}/{pg_db}'
+            print(f"INFO: Usando PostgreSQL em {pg_host}:{pg_port}")
+        except ImportError:
+            print("INFO: psycopg2 não instalado, usando SQLite")
+            DATABASE_URL = 'sqlite:///database/stocks.db'
+        except Exception as e:
+            print(f"INFO: PostgreSQL não disponível ({str(e)}), usando SQLite")
+            DATABASE_URL = 'sqlite:///database/stocks.db'
+    
+    @staticmethod
+    def get_db_type():
+        """Retorna o tipo de banco de dados sendo usado"""
+        url = Config.DATABASE_URL.lower() if Config.DATABASE_URL else ''
+        if 'postgresql' in url:
+            return 'postgresql'
+        elif 'mysql' in url:
+            return 'mysql'
+        else:
+            return 'sqlite'
     
     # API Keys
     BRAPI_API_KEY = os.environ.get('BRAPI_API_KEY')
