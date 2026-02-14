@@ -1,7 +1,7 @@
 import logging
 from datetime import datetime, date
 from typing import List, Dict, Any, Optional
-from models.purchase import Purchase, create_purchase, get_purchases_by_user, get_purchase_by_id, update_purchase, delete_purchase, get_portfolio_summary, get_portfolio_distribution, get_portfolio_performance
+from models.purchase import Purchase, create_purchase, get_purchases_by_user, get_purchase_by_id, update_purchase, delete_purchase, get_portfolio_summary, get_portfolio_distribution, get_portfolio_performance, get_portfolio_distribution_by_asset_class
 from models.database import SessionLocal
 from sqlalchemy import func
 
@@ -205,6 +205,9 @@ class PurchaseService:
                 order_dir='DESC'
             )
             
+            # Distribuição por classe de ativo
+            distrib_classe = get_portfolio_distribution_by_asset_class(user_id)
+            
             # Construir portfolio completo
             portfolio_data = {
                 'total_investido': summary.get('total_investido', 0) if summary else 0,
@@ -212,7 +215,8 @@ class PurchaseService:
                 'resultado_total': performance.get('resumo', {}).get('resultado_total', 0) if performance else 0,
                 'rentabilidade_total': performance.get('resumo', {}).get('resultado_percentual_total', 0) if performance else 0,
                 'posicoes': performance.get('tickers', []) if performance else [],
-                'analise_setor': {}
+                'analise_setor': {},
+                'analise_classe_ativo': distrib_classe.get('distribution', []) if distrib_classe else []
             }
             
             return {
@@ -220,7 +224,8 @@ class PurchaseService:
                 'resumo': portfolio_data,
                 'distribuicao': [dict(row) for row in distribution] if distribution else [],
                 'performance': performance,
-                'compras_recentes': [compra.to_dict() for compra in compras_recentes]
+                'compras_recentes': [compra.to_dict() for compra in compras_recentes],
+                'distrib_classe': distrib_classe
             }
             
         except Exception as e:
