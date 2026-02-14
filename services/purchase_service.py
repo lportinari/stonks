@@ -11,12 +11,12 @@ class PurchaseService:
     """Serviço responsável pela gestão de compras de ativos"""
     
     def criar_compra(self, user_id: int, ticker: str, nome_ativo: str, 
-                    quantidade: int, preco_unitario: float, taxas: float = 0.0, 
+                    quantidade: float, preco_unitario: float, taxas: float = 0.0, 
                     data_compra: date = None, classe_ativo: str = None) -> Dict[str, Any]:
         """Cria uma nova compra de ativo"""
         try:
             # Validações básicas
-            if not ticker or len(ticker) > 10:
+            if not ticker or len(ticker) > 50:
                 return {'success': False, 'message': 'Ticker inválido'}
             
             if not nome_ativo or len(nome_ativo) < 2:
@@ -140,7 +140,7 @@ class PurchaseService:
             
             for field, value in kwargs.items():
                 if field in allowed_fields:
-                    if field == 'ticker' and (not value or len(value) > 10):
+                    if field == 'ticker' and (not value or len(value) > 50):
                         return {'success': False, 'message': 'Ticker inválido'}
                     elif field == 'nome_ativo' and (not value or len(value) < 2):
                         return {'success': False, 'message': 'Nome do ativo inválido'}

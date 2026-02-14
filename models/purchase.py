@@ -11,11 +11,11 @@ class Purchase(Base):
     # Campos básicos
     id = Column(Integer, primary_key=True, index=True)
     user_id = Column(Integer, ForeignKey('users.id'), nullable=False, index=True)
-    ticker = Column(String(10), nullable=False, index=True)
+    ticker = Column(String(50), nullable=False, index=True)
     nome_ativo = Column(String(200))
     
     # Dados da compra
-    quantidade = Column(Integer, nullable=False)
+    quantidade = Column(Float, nullable=False)
     preco_unitario = Column(Float, nullable=False)
     taxas = Column(Float, default=0.0)
     custo_total = Column(Float, nullable=False)
@@ -68,7 +68,7 @@ def create_purchase(user_id, ticker, nome_ativo, quantidade, preco_unitario, tax
         data_compra = datetime.now()
     
     # Calcular custo total e preço médio
-    quantidade = int(quantidade)
+    quantidade = float(quantidade)
     preco_unitario = float(preco_unitario)
     taxas = float(taxas)
     custo_total = (quantidade * preco_unitario) + taxas
