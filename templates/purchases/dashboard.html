@@ -65,7 +65,7 @@
                 <h6><i class="fas fa-chart-pie"></i> Distribuição por Ativo</h6>
             </div>
             <div class="card-body">
-                <canvas id="portfolioPieChart" width="400" height="300"></canvas>
+                <canvas id="portfolioPieChart" data-posicoes='{{ portfolio.posicoes | tojson | safe }}' width="400" height="300"></canvas>
             </div>
         </div>
     </div>
@@ -75,11 +75,62 @@
                 <h6><i class="fas fa-chart-bar"></i> Top 5 Ativos</h6>
             </div>
             <div class="card-body">
-                <canvas id="topAtivosChart" width="400" height="300"></canvas>
+                <canvas id="topAtivosChart" data-posicoes='{{ portfolio.posicoes | tojson | safe }}' width="400" height="300"></canvas>
             </div>
         </div>
     </div>
 </div>
+
+<!-- Gráfico por Classe de Ativo -->
+{% if distrib_classe and distrib_classe.distribution %}
+<div class="row mb-4">
+    <div class="col-md-12">
+        <div class="card border-info">
+            <div class="card-header bg-info text-white">
+                <h6><i class="fas fa-layer-group"></i> Distribuição por Classe de Ativo</h6>
+            </div>
+            <div class="card-body">
+                <div class="row">
+                    <div class="col-md-6">
+                        <canvas id="assetClassChart" data-classe-distribution='{{ distrib_classe.distribution | tojson | safe }}' width="400" height="300"></canvas>
+                    </div>
+                    <div class="col-md-6">
+                        <h6 class="text-muted mb-3">Detalhes por Classe</h6>
+                        <div class="table-responsive">
+                            <table class="table table-sm table-striped">
+                                <thead>
+                                    <tr>
+                                        <th>Classe</th>
+                                        <th>Valor</th>
+                                        <th>%</th>
+                                        <th>Ativos</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    {% for item in distrib_classe.distribution %}
+                                    <tr>
+                                        <td><strong>{{ item.classe_nome }}</strong></td>
+                                        <td class="text-right">R$ {{ "%.2f"|format(item.valor_total) }}</td>
+                                        <td class="text-right">{{ "%.1f"|format(item.percentual) }}%</td>
+                                        <td class="text-center">{{ item.num_tickers }}</td>
+                                    </tr>
+                                    {% endfor %}
+                                    <tr class="table-dark">
+                                        <th>Total</th>
+                                        <th class="text-right">R$ {{ "%.2f"|format(distrib_classe.total_investido) }}</th>
+                                        <th class="text-right">100.0%</th>
+                                        <th class="text-center">{{ distrib_classe.distribution|sum(attribute='num_tickers') }}</th>
+                                    </tr>
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endif %}
 
 <!-- Tabela Detalhada -->
 <div class="card">
@@ -166,29 +217,6 @@
     </div>
 </div>
 
-<!-- Análise por Setor -->
-{% if portfolio.analise_setor %}
-<div class="card mt-4">
-    <div class="card-header">
-        <h6><i class="fas fa-industry"></i> Análise por Setor</h6>
-    </div>
-    <div class="card-body">
-        <div class="row">
-            {% for setor, dados in portfolio.analise_setor.items() %}
-            <div class="col-md-4 mb-3">
-                <div class="card border-info">
-                    <div class="card-body text-center">
-                        <h6 class="text-info">{{ setor }}</h6>
-                        <h5>R$ {{ "%.2f"|format(dados.valor_atual or 0) }}</h5>
-                        <small class="text-muted">{{ "%.1f"|format(dados.percentual) }}% do portfolio</small>
-                    </div>
-                </div>
-            </div>
-            {% endfor %}
-        </div>
-    </div>
-</div>
-{% endif %}
 {% endblock %}
 
 {% block extra_css %}
@@ -310,6 +338,60 @@ function inicializarGraficos() {
                 }
             }
         });
+    }
+    
+    // Gráfico de Pizza - Distribuição por Classe de Ativo
+    const assetClassCtx = document.getElementById('assetClassChart');
+    if (assetClassCtx) {
+        // Obter dados do data attribute (mais confiável que ler da tabela)
+        const classeDistribution = JSON.parse(assetClassCtx.dataset.classeDistribution || '[]');
+        
+        if (classeDistribution.length > 0) {
+            new Chart(assetClassCtx, {
+                type: 'pie',
+                data: {
+                    labels: classeDistribution.map(item => item.classe_nome),
+                    datasets: [{
+                        data: classeDistribution.map(item => item.valor_total),
+                        backgroundColor: [
+                            '#007bff', // Ações - Azul
+                            '#28a745', // Renda Fixa Pós - Verde
+                            '#20c997', // Renda Fixa Dinâmica - Teal
+                            '#fd7e14', // Fundos Imobiliários - Laranja
+                            '#6f42c1', // Internacional - Roxo
+                            '#e83e8c', // Fundos Multimercados - Rosa
+                            '#17a2b8', // Alternativos - Ciano
+                            '#6c757d'  // Outros - Cinza
+                        ],
+                        borderWidth: 2
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: {
+                        legend: {
+                            position: 'bottom',
+                            labels: {
+                                padding: 15,
+                                usePointStyle: true
+                            }
+                        },
+                        tooltip: {
+                            callbacks: {
+                                label: function(context) {
+                                    const label = context.label || '';
+                                    const value = 'R$ ' + context.parsed.toLocaleString('pt-BR', {minimumFractionDigits: 2});
+                                    const total = context.dataset.data.reduce((a, b) => a + b, 0);
+                                    const percentage = ((context.parsed / total) * 100).toFixed(1);
+                                    return label + ': ' + value + ' (' + percentage + '%)';
+                                }
+                            }
+                        }
+                    }
+                }
+            });
+        }
     }
 }
 

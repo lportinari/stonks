@@ -291,6 +291,7 @@ def dashboard():
             distribuicao = resultado_dashboard['distribuicao']
             performance = resultado_dashboard['performance']
             compras_recentes = resultado_dashboard['compras_recentes']
+            distrib_classe = resultado_dashboard['distrib_classe']
         else:
             flash(resultado_dashboard['message'], 'error')
             portfolio = {
@@ -299,17 +300,24 @@ def dashboard():
                 'resultado_total': 0,
                 'rentabilidade_total': 0,
                 'posicoes': [],
-                'analise_setor': {}
+                'analise_setor': {},
+                'analise_classe_ativo': []
             }
             distribuicao = []
             performance = {}
             compras_recentes = []
+            distrib_classe = {
+                'distribution': [],
+                'total_investido': 0,
+                'total_classes': 0
+            }
         
         return render_template('purchases/dashboard.html', 
                              portfolio=portfolio,
                              distribuicao=distribuicao,
                              performance=performance,
-                             compras_recentes=compras_recentes)
+                             compras_recentes=compras_recentes,
+                             distrib_classe=distrib_classe)
         
     except Exception as e:
         logger.error(f"Erro no dashboard: {e}")

@@ -311,3 +311,67 @@ def get_portfolio_performance(user_id):
                 'resultado_percentual_total': resultado_percentual_total
             }
         }
+
+def get_portfolio_distribution_by_asset_class(user_id):
+    """Calcula a distribuição do portfolio por classe de ativo usando ORM"""
+    from .database import SessionLocal
+    from sqlalchemy import func
+    
+    try:
+        with SessionLocal() as db:
+            # Buscar dados agrupados por classe de ativo
+            results = db.query(
+                Purchase.classe_ativo,
+                func.sum(Purchase.custo_total).label('total_custo'),
+                func.count(Purchase.id).label('num_compras'),
+                func.count(func.distinct(Purchase.ticker)).label('num_tickers')
+            ).filter(
+                Purchase.user_id == user_id
+            ).group_by(
+                Purchase.classe_ativo
+            ).order_by(
+                func.sum(Purchase.custo_total).desc()
+            ).all()
+            
+            # Calcular total investido
+            total_investido = sum(float(r.total_custo) if r.total_custo else 0.0 for r in results)
+            
+            # Mapeamento de nomes para exibição
+            classe_nomes = {
+                'acoes': 'Ações',
+                'renda_fixa_pos': 'Renda Fixa Pós',
+                'renda_fixa_dinamica': 'Renda Fixa Dinâmica',
+                'fundos_imobiliarios': 'Fundos Imobiliários',
+                'internacional': 'Internacional',
+                'fundos_multimercados': 'Fundos Multimercados',
+                'alternativos': 'Alternativos'
+            }
+            
+            # Construir resultado
+            distribution = []
+            for r in results:
+                classe = r.classe_ativo or 'Outros'
+                custo = float(r.total_custo) if r.total_custo else 0.0
+                percentual = (custo / total_investido * 100) if total_investido > 0 else 0.0
+                
+                distribution.append({
+                    'classe_ativo': classe,
+                    'classe_nome': classe_nomes.get(classe, classe),
+                    'valor_total': custo,
+                    'percentual': percentual,
+                    'num_compras': r.num_compras or 0,
+                    'num_tickers': r.num_tickers or 0
+                })
+            
+            return {
+                'distribution': distribution,
+                'total_investido': total_investido,
+                'total_classes': len(distribution)
+            }
+    except Exception as e:
+        print(f"Erro ao obter distribuição por classe de ativo: {e}")
+        return {
+            'distribution': [],
+            'total_investido': 0.0,
+            'total_classes': 0
+        }
