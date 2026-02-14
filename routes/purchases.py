@@ -96,7 +96,7 @@ def new_purchase():
             'ticker': request.form.get('ticker', '').strip().upper(),
             'nome_ativo': request.form.get('nome_ativo', f"{request.form.get('ticker', '').strip()} - Manual"),
             'preco_unitario': request.form.get('preco_unitario', '').replace(',', '.'),
-            'quantidade': request.form.get('quantidade', ''),
+            'quantidade': request.form.get('quantidade', '').replace(',', '.'),
             'data_compra': request.form.get('data_compra', ''),
             'classe_ativo': request.form.get('classe_ativo', ''),
             'taxa_corretagem': request.form.get('taxa_corretagem', '0').replace(',', '.'),
@@ -113,7 +113,7 @@ def new_purchase():
         try:
             # Converter valores
             dados['preco_unitario'] = float(dados['preco_unitario'])
-            dados['quantidade'] = int(dados['quantidade'])
+            dados['quantidade'] = float(dados['quantidade'])
             dados['taxa_corretagem'] = float(dados['taxa_corretagem'])
             dados['taxa_emolumentos'] = float(dados['taxa_emolumentos'])
             dados['outros_custos'] = float(dados['outros_custos'])
