@@ -2,7 +2,6 @@ from flask import Blueprint, render_template, request, jsonify, redirect, url_fo
 from typing import Dict, List
 import logging
 from services.ranking_service import RankingService
-from services.fundamentus_scraper import FundamentusScraper
 from services.cache_manager import CacheManager, CacheKeys
 from services.indicator_calculator import IndicatorCalculator
 from config import Config
@@ -12,7 +11,6 @@ logger = logging.getLogger(__name__)
 main_bp = Blueprint('main', __name__)
 
 ranking_service = RankingService()
-scraper = FundamentusScraper()
 cache_manager = CacheManager()
 calculator = IndicatorCalculator()
 

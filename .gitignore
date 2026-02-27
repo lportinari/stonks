@@ -32,7 +32,14 @@ logs/
 # SQLite / local databases
 *.sqlite
 *.sqlite3
+*.db
 db.sqlite3
+
+# Database cache (logos, etc.)
+database/cache/
+
+# Reports
+reports/
 
 # Migrations (se usar Flask-Migrate / Alembic)
 migrations/__pycache__/
