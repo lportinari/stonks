@@ -1,1 +1,0 @@
-# Updater scripts for Stonks project

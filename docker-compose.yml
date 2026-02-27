@@ -1,0 +1,19 @@
+services:
+  stonks:
+    build: .
+    container_name: stonks_app
+    ports:
+      - "5000:5000"
+    environment:
+      DATABASE_URL: postgresql://postgres:postgres@smartstyle_postgres:5432/stonks
+      SECRET_KEY: stonks-secret-key-2024
+      FLASK_DEBUG: "false"
+      FLASK_HOST: "0.0.0.0"
+      FLASK_PORT: "5000"
+    networks:
+      - smartstyle_network
+
+networks:
+  smartstyle_network:
+    external: true
+    name: smartstyle_smartstyle_network
